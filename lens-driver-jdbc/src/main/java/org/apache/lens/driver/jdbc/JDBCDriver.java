@@ -27,11 +27,11 @@ import org.apache.lens.api.query.QueryCost;
 import org.apache.lens.api.query.QueryHandle;
 import org.apache.lens.api.query.QueryPrepareHandle;
 import org.apache.lens.cube.parse.HQLParser;
-import org.apache.lens.driver.cube.RewriteUtil;
 import org.apache.lens.server.api.LensConfConstants;
 import org.apache.lens.server.api.driver.*;
 import org.apache.lens.server.api.driver.DriverQueryStatus.DriverQueryState;
 import org.apache.lens.server.api.events.LensEventListener;
+import static org.apache.lens.server.api.query.DriverSelectorQueryContext.DriverQueryContext;
 import org.apache.lens.server.api.query.PreparedQueryContext;
 import org.apache.lens.server.api.query.QueryContext;
 import org.apache.log4j.Logger;
@@ -439,8 +439,6 @@ public class JDBCDriver implements LensDriver {
   /**
    * Gets the query rewriter.
    *
-   * @param conf
-   *          the conf
    * @return the query rewriter
    * @throws LensException
    *           the lens exception
@@ -548,7 +546,6 @@ public class JDBCDriver implements LensDriver {
   @Override
   public DriverQueryPlan explain(String query, Configuration conf) throws LensException {
     checkConfigured();
-    conf = RewriteUtil.getFinalQueryConf(this, conf);
     String rewrittenQuery = rewriteQuery(query, conf);
     Configuration explainConf = new Configuration(conf);
     explainConf.setBoolean(LensConfConstants.QUERY_PERSISTENT_RESULT_INDRIVER, false);
@@ -583,7 +580,7 @@ public class JDBCDriver implements LensDriver {
   public void prepare(PreparedQueryContext pContext) throws LensException {
     checkConfigured();
     // Only create a prepared statement and then close it
-    String rewrittenQuery = rewriteQuery(pContext.getDriverQuery(), pContext.getConf());
+    String rewrittenQuery = rewriteQuery(pContext.getDriverContext().getSelectedDriverQuery(), pContext.getConf());
     Connection conn = null;
     PreparedStatement stmt = null;
     try {
@@ -623,7 +620,7 @@ public class JDBCDriver implements LensDriver {
   @Override
   public DriverQueryPlan explainAndPrepare(PreparedQueryContext pContext) throws LensException {
     checkConfigured();
-    String rewritten = rewriteQuery(pContext.getDriverQuery(), conf);
+    String rewritten = rewriteQuery(pContext.getDriverContext().getSelectedDriverQuery(), conf);
     prepare(pContext);
     return new JDBCQueryPlan();
   }
@@ -656,7 +653,8 @@ public class JDBCDriver implements LensDriver {
     checkConfigured();
     // Always use the driver rewritten query not user query. Since the
     // conf we are passing here is query context conf, we need to add jdbc xml in resource path
-    String rewrittenQuery = rewriteQuery(context.getDriverQuery(), RewriteUtil.getFinalQueryConf(this, conf));
+    String rewrittenQuery = rewriteQuery(context.getDriverContext().getSelectedDriverQuery(), context
+      .getDriverContext().getSelectedDriverConf());
     LOG.info("Execute " + context.getQueryHandle());
     QueryResult result = executeInternal(context, rewrittenQuery);
     return result.getLensResultSet(true);
@@ -697,7 +695,8 @@ public class JDBCDriver implements LensDriver {
     checkConfigured();
     // Always use the driver rewritten query not user query. Since the
     // conf we are passing here is query context conf, we need to add jdbc xml in resource path
-    String rewrittenQuery = rewriteQuery(context.getDriverQuery(), RewriteUtil.getFinalQueryConf(this, conf));
+    String rewrittenQuery = rewriteQuery(context.getDriverContext().getSelectedDriverQuery(), context.getDriverContext()
+      .getSelectedDriverConf());
     JdbcQueryContext jdbcCtx = new JdbcQueryContext(context);
     jdbcCtx.setRewrittenQuery(rewrittenQuery);
     try {

@@ -19,13 +19,17 @@
 package org.apache.lens.server.api.query;
 
 import lombok.Getter;
+import lombok.Setter;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.lens.api.LensConf;
+import org.apache.lens.server.api.driver.LensDriver;
 
 import java.io.Serializable;
+import java.util.Collection;
 
-public abstract class AbstractQueryContext extends DriverSelectorQueryContext implements Serializable {
+public abstract class AbstractQueryContext implements Serializable {
   /** The Constant LOG */
   public static final Log LOG = LogFactory.getLog(AbstractQueryContext.class);
 
@@ -33,7 +37,30 @@ public abstract class AbstractQueryContext extends DriverSelectorQueryContext im
   @Getter
   protected String userQuery;
 
-  /** The qconf. */
+  /** The merged Query conf. */
+  @Getter @Setter
+  transient protected Configuration conf;
+
+  /** The query conf. */
   @Getter
   protected LensConf qconf;
+
+  /** The driver ctx */
+  @Getter
+  @Setter
+  protected DriverSelectorQueryContext driverContext;
+
+  protected AbstractQueryContext(final String query, final LensConf qconf, final Configuration conf) {
+    userQuery = query;
+    this.qconf = qconf;
+    this.conf = conf;
+  }
+
+  protected AbstractQueryContext(final String query, final LensConf qconf, final Configuration conf, final
+  Collection<LensDriver> drivers) {
+    driverContext = new DriverSelectorQueryContext(conf, drivers);
+    userQuery = query;
+    this.qconf = qconf;
+    this.conf = conf;
+  }
 }
