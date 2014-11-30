@@ -88,7 +88,6 @@
   <property>
     <name>lens.cube.query.driver.supported.storages</name>
     <value></value>
-    <final>true</final>
     <description>List of comma separated storage names that supported by a driver. If no value is specified, all storages are valid</description>
   </property>
 

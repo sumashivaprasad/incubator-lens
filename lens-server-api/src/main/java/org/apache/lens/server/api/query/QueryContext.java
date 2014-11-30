@@ -42,7 +42,6 @@ import lombok.Setter;
 /**
  * The Class QueryContext.
  */
-/* TODO - use builder for this - too many constructors */
 public class QueryContext extends AbstractQueryContext implements Comparable<QueryContext> {
 
   /** The Constant serialVersionUID. */
@@ -168,6 +167,24 @@ public class QueryContext extends AbstractQueryContext implements Comparable<Que
    *          the qconf
    * @param conf
    *          the conf
+   */
+  public QueryContext(String query, String user, LensConf qconf, Configuration conf) {
+    this(query, user, qconf, conf, new Date().getTime());
+  }
+
+  /**
+   * Instantiates a new query context.
+   *
+   * @param query
+   *          the query
+   * @param user
+   *          the user
+   * @param qconf
+   *          the qconf
+   * @param conf
+   *          the conf
+   * @param drivers
+   *          Collection of drivers
    */
   public QueryContext(String query, String user, LensConf qconf, Configuration conf, Collection<LensDriver> drivers) {
     this(query, user, qconf, conf, drivers, null, new Date().getTime());

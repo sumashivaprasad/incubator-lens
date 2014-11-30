@@ -70,7 +70,7 @@ public class TestHiveDriver {
   protected HiveDriver driver;
 
   /** Driver list **/
-  Collection<LensDriver> drivers;
+  protected Collection<LensDriver> drivers;
 
   /** The data base. */
   public String DATA_BASE = this.getClass().getSimpleName().toLowerCase();
@@ -126,8 +126,10 @@ public class TestHiveDriver {
     SessionState.get().setCurrentDatabase(DATA_BASE);
   }
 
-  protected QueryContext createContext(String query, Configuration conf) {
+  protected QueryContext createContext(final String query, Configuration conf) throws LensException {
     QueryContext context = new QueryContext(query, "testuser", conf, drivers);
+    context.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }} );
+    context.getDriverContext().setSelectedDriver(driver);
     context.setLensSessionIdentifier(sessionid);
     return context;
   }
@@ -782,7 +784,10 @@ public class TestHiveDriver {
    */
   @Test
   public void testPriority() throws IOException, LensException {
+    Configuration conf = new Configuration();
     final MockDriver mockDriver = new MockDriver();
+    mockDriver.configure(conf);
+
     BufferedReader br = new BufferedReader(new InputStreamReader(TestHiveDriver.class.getResourceAsStream("/priority_tests.txt")));
     String line;
     while((line = br.readLine()) != null) {
@@ -795,11 +800,12 @@ public class TestHiveDriver {
           put(mockDriver, "driverQuery1");
         }
       };
-      AbstractQueryContext ctx = new MockQueryContext("driverQuery1", new LensConf(), new Configuration(),
+      AbstractQueryContext ctx = new MockQueryContext("driverQuery1", new LensConf(), conf,
                                                       driverQuery1.keySet());
-      ctx.getDriverContext().setSelectedDriver(driver);
+      ctx.getDriverContext().setDriverQueriesAndPlans(driverQuery1);
+      ctx.getDriverContext().setSelectedDriver(mockDriver);
 
-      ((MockDriver.MockQueryPlan)ctx.getDriverContext().getDriverQueryPlan(driver)).setPartitions
+      ((MockDriver.MockQueryPlan)ctx.getDriverContext().getDriverQueryPlan(mockDriver)).setPartitions
         (new HashMap<String,
           List<String>>
           () {

@@ -154,7 +154,7 @@ public class TestRewriting {
     drivers.add(driver);
 
     CubeQueryRewriter mockWriter = getMockedRewriter();
-    PowerMockito.stub(PowerMockito.method(RewriteUtil.class, "getRewriter")).toReturn(mockWriter);
+    PowerMockito.stub(PowerMockito.method(RewriteUtil.class, "getCubeRewriter")).toReturn(mockWriter);
     String q1 = "select name from table";
     Assert.assertFalse(RewriteUtil.isCubeQuery(q1));
     List<RewriteUtil.CubeQueryInfo> cubeQueries = RewriteUtil.findCubePositions(q1);

@@ -43,19 +43,26 @@ public class TestMinCostSelector {
     LensConf qconf = new LensConf();
 
     MockDriver d1 = new MockDriver();
+    d1.configure(conf);
     MockDriver d2 = new MockDriver();
+    d2.configure(conf);
     MockFailDriver fd1 = new MockFailDriver();
+    fd1.configure(conf);
     MockFailDriver fd2 = new MockFailDriver();
+    fd2.configure(conf);
 
     drivers.add(d1);
     drivers.add(d2);
     String query = "test query";
     driverQueries.put(d1, query);
-    LensDriver selected = selector.select(new MockQueryContext(query, qconf, conf,  drivers), conf);
+    MockQueryContext ctx = new MockQueryContext(query, qconf, conf,  drivers);
+    ctx.getDriverContext().setDriverQueriesAndPlans(driverQueries);
+    LensDriver selected = selector.select(ctx, conf);
+
     Assert.assertEquals(d1, selected);
     driverQueries.put(d2, query);
     driverQueries.remove(d1);
-    MockQueryContext ctx = new MockQueryContext(query, qconf,  conf, drivers);
+    ctx = new MockQueryContext(query, qconf,  conf, drivers);
     ctx.getDriverContext().setDriverQueriesAndPlans(driverQueries);
 
     selected = selector.select(ctx, conf);

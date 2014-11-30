@@ -404,16 +404,16 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
           QueryContext ctx = acceptedQueries.take();
           synchronized (ctx) {
             if (ctx.getStatus().getStatus().equals(Status.QUEUED)) {
-              LOG.info("Launching query:" + ctx.getDriverContext().getSelectedDriverQuery());
+              LOG.info("Launching query:" + ctx.getSelectedDriverQuery());
               try {
                 // acquire session before any query operation.
                 acquire(ctx.getLensSessionIdentifier());
-                if (ctx.getDriverContext().getSelectedDriver() == null) {
+                if (ctx.getSelectedDriver() == null) {
                   rewriteAndSelect(ctx);
                 } else {
                   LOG.info("Submitting to already selected driver");
                 }
-                ctx.getDriverContext().getSelectedDriver().executeAsync(ctx);
+                ctx.getSelectedDriver().executeAsync(ctx);
               } catch (Exception e) {
                 LOG.error("Error launching query " + ctx.getQueryHandle(), e);
                 String reason = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
@@ -585,7 +585,7 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
             && !ctx.getStatus().isFinished()) {
           LOG.info("Updating status for " + ctx.getQueryHandle());
           try {
-            ctx.getDriverContext().getSelectedDriver().updateStatus(ctx);
+            ctx.getSelectedDriver().updateStatus(ctx);
             ctx.setStatus(ctx.getDriverStatus().toQueryStatus());
           } catch (LensException exc) {
             // Driver gave exception while updating status
@@ -726,8 +726,8 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
           synchronized (finished.ctx) {
             finished.ctx.setFinishedQueryPersisted(true);
             try {
-              if (finished.getCtx().getDriverContext().getSelectedDriver() != null) {
-                finished.getCtx().getDriverContext().getSelectedDriver().closeQuery(finished.getCtx().getQueryHandle());
+              if (finished.getCtx().getSelectedDriver() != null) {
+                finished.getCtx().getSelectedDriver().closeQuery(finished.getCtx().getQueryHandle());
               }
             } catch (Exception e) {
               LOG.warn("Exception while closing query with selected driver.", e);
@@ -918,7 +918,6 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
     LensDriver driver = driverSelector.select(ctx, conf);
 
     ctx.getDriverContext().setSelectedDriver(driver);
-    ctx.getDriverContext().setSelectedDriverQuery(ctx.getDriverContext().getSelectedDriverQuery());
   }
 
   /**
@@ -999,7 +998,7 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
                     .getQueryOutputFormatter().getFinalOutputPath().toString(), ctx.getQueryOutputFormatter()
                     .getNumRows()));
           } else if (allQueries.get(queryHandle).isResultAvailableInDriver()) {
-            resultSet = allQueries.get(queryHandle).getDriverContext().getSelectedDriver().fetchResultSet(allQueries
+            resultSet = allQueries.get(queryHandle).getSelectedDriver().fetchResultSet(allQueries
                                                                                                             .get(queryHandle));
             resultSets.put(queryHandle, resultSet);
           } else {
@@ -1021,7 +1020,7 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
    *           the lens exception
    */
   LensResultSet getDriverResultset(QueryHandle queryHandle) throws LensException {
-    return allQueries.get(queryHandle).getDriverContext().getSelectedDriver().fetchResultSet(allQueries.get
+    return allQueries.get(queryHandle).getSelectedDriver().fetchResultSet(allQueries.get
       (queryHandle));
   }
 
@@ -1038,7 +1037,7 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
       acquire(sessionHandle);
       PreparedQueryContext prepared = prepareQuery(sessionHandle, query, lensConf, SubmitOp.PREPARE);
       prepared.setQueryName(queryName);
-      prepared.getDriverContext().getSelectedDriver().prepare(prepared);
+      prepared.getSelectedDriver().prepare(prepared);
       return prepared.getPrepareHandle();
     } finally {
       release(sessionHandle);
@@ -1088,7 +1087,7 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
       acquire(sessionHandle);
       PreparedQueryContext prepared = prepareQuery(sessionHandle, query, lensConf, SubmitOp.EXPLAIN_AND_PREPARE);
       prepared.setQueryName(queryName);
-      QueryPlan plan = prepared.getDriverContext().getSelectedDriver().explainAndPrepare(prepared).toQueryPlan();
+      QueryPlan plan = prepared.getSelectedDriver().explainAndPrepare(prepared).toQueryPlan();
       plan.setPrepareHandle(prepared.getPrepareHandle());
       return plan;
     } catch (LensException e) {
@@ -1443,7 +1442,7 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
       }
     }
     QueryCompletionListener listener = new QueryCompletionListenerImpl(handle);
-    getQueryContext(sessionHandle, handle).getDriverContext().getSelectedDriver().registerForCompletionNotification
+    getQueryContext(sessionHandle, handle).getSelectedDriver().registerForCompletionNotification
       (handle,
                                                                                                    timeoutMillis,
         listener);
@@ -1569,7 +1568,7 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
       acquire(sessionHandle);
       resultSets.remove(queryHandle);
       // Ask driver to close result set
-      getQueryContext(queryHandle).getDriverContext().getSelectedDriver().closeResultSet(queryHandle);
+      getQueryContext(queryHandle).getSelectedDriver().closeResultSet(queryHandle);
     } finally {
       release(sessionHandle);
     }
@@ -1593,7 +1592,7 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
       synchronized (ctx) {
         if (ctx.getStatus().getStatus().equals(QueryStatus.Status.LAUNCHED)
             || ctx.getStatus().getStatus().equals(QueryStatus.Status.RUNNING)) {
-          boolean ret = ctx.getDriverContext().getSelectedDriver().cancelQuery(queryHandle);
+          boolean ret = ctx.getSelectedDriver().cancelQuery(queryHandle);
           if (!ret) {
             return false;
           }
@@ -1754,7 +1753,7 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
    *           the lens exception
    */
   private void destroyPreparedQuery(PreparedQueryContext ctx) throws LensException {
-    ctx.getDriverContext().getSelectedDriver().closePreparedQuery(ctx.getPrepareHandle());
+    ctx.getSelectedDriver().closePreparedQuery(ctx.getPrepareHandle());
     preparedQueries.remove(ctx.getPrepareHandle());
     preparedQueryQueue.remove(ctx);
     decrCounter(PREPARED_QUERIES_COUNTER);
@@ -1778,7 +1777,7 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
       explainQueryContext.getDriverContext().setDriverQueriesAndPlans(RewriteUtil.rewriteQuery(explainQueryContext));
       // select driver to run the query
       explainQueryContext.getDriverContext().setSelectedDriver(driverSelector.select(explainQueryContext, qconf));
-      return explainQueryContext.getDriverContext().getSelectedDriverQueryPlan().toQueryPlan();
+      return explainQueryContext.getSelectedDriverQueryPlan().toQueryPlan();
     } catch (LensException e) {
       QueryPlan plan;
       if (e.getCause() != null && e.getCause().getMessage() != null) {
@@ -1952,10 +1951,10 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
       out.writeInt(allQueries.size());
       for (QueryContext ctx : allQueries.values()) {
         out.writeObject(ctx);
-        boolean isDriverAvailable = (ctx.getDriverContext().getSelectedDriver() != null);
+        boolean isDriverAvailable = (ctx.getSelectedDriver() != null);
         out.writeBoolean(isDriverAvailable);
         if (isDriverAvailable) {
-          out.writeUTF(ctx.getDriverContext().getSelectedDriver().getClass().getName());
+          out.writeUTF(ctx.getSelectedDriver().getClass().getName());
         }
       }
     }

@@ -24,6 +24,8 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.lens.api.LensConf;
+import org.apache.lens.api.LensException;
+import org.apache.lens.server.api.driver.DriverQueryPlan;
 import org.apache.lens.server.api.driver.LensDriver;
 
 import java.io.Serializable;
@@ -57,10 +59,43 @@ public abstract class AbstractQueryContext implements Serializable {
   }
 
   protected AbstractQueryContext(final String query, final LensConf qconf, final Configuration conf, final
-  Collection<LensDriver> drivers) {
-    driverContext = new DriverSelectorQueryContext(conf, drivers);
+    Collection<LensDriver> drivers) {
+    driverContext = new DriverSelectorQueryContext(query, conf, drivers);
     userQuery = query;
     this.qconf = qconf;
     this.conf = conf;
+  }
+
+  /** Wrapper method for convenience on driver context
+   *
+   * @return the selected driver's query
+   */
+  public String getSelectedDriverQuery() {
+    if(driverContext != null) {
+      return driverContext.getSelectedDriverQuery();
+    }
+    return null;
+  }
+
+  /** Wrapper method for convenience on driver context
+   *
+   * @return the selected driver
+   */
+  public LensDriver getSelectedDriver() {
+    if(driverContext != null) {
+      return driverContext.getSelectedDriver();
+    }
+    return null;
+  }
+
+  /** Wrapper method for convenience on driver context
+   *
+   * @return the selected driver
+   */
+  public DriverQueryPlan getSelectedDriverQueryPlan() throws LensException {
+    if(driverContext != null) {
+      return driverContext.getSelectedDriverQueryPlan();
+    }
+    return null;
   }
 }

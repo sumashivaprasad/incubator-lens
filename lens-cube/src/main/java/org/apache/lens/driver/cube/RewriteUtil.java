@@ -35,7 +35,6 @@ import org.apache.lens.api.LensException;
 import org.apache.lens.cube.parse.CubeQueryRewriter;
 import org.apache.lens.cube.parse.HQLParser;
 import org.apache.lens.server.api.driver.LensDriver;
-import static org.apache.lens.server.api.query.DriverSelectorQueryContext.DriverQueryContext;
 
 import org.apache.lens.server.api.query.AbstractQueryContext;
 import org.apache.log4j.Logger;
@@ -189,6 +188,19 @@ public class RewriteUtil {
   }
 
   /**
+   * Gets the rewriter.
+   *
+   * @param queryConf
+   *          the query conf
+   * @return the rewriter
+   * @throws SemanticException
+   *           the semantic exception
+   */
+  static CubeQueryRewriter getCubeRewriter(Configuration queryConf) throws SemanticException {
+    return new CubeQueryRewriter(queryConf);
+  }
+
+  /**
    * Replaces new lines with spaces; '&&' with AND; '||' with OR // these two can be removed once HIVE-5326 gets
    * resolved.
    *
@@ -225,7 +237,7 @@ public class RewriteUtil {
       } else {
         List<RewriteUtil.CubeQueryInfo> cubeQueries = findCubePositions(replacedQuery);
         for (LensDriver driver : ctx.getDriverContext().getDrivers()) {
-          CubeQueryRewriter rewriter = new CubeQueryRewriter(ctx.getDriverContext().getDriverConf(driver));
+          CubeQueryRewriter rewriter = getCubeRewriter(ctx.getDriverContext().getDriverConf(driver));
           StringBuilder builder = new StringBuilder();
           int start = 0;
           try {

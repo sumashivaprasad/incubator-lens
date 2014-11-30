@@ -27,13 +27,14 @@ import org.apache.lens.api.LensException;
 import org.apache.lens.server.api.driver.DriverQueryPlan;
 import org.apache.lens.server.api.driver.LensDriver;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class DriverSelectorQueryContext {
+public class DriverSelectorQueryContext implements Serializable  {
 
   /** The constant LOG */
   public static final Log LOG = LogFactory.getLog(DriverSelectorQueryContext.class);
@@ -41,22 +42,19 @@ public class DriverSelectorQueryContext {
   /** The selected driver. */
   @Getter
   @Setter
-  transient protected LensDriver selectedDriver;
-
-//  /** The driver query. */
-//  @Getter
-//  @Setter
-//  protected String driverQuery;
+  protected LensDriver selectedDriver;
 
   /** Map of driver to driver specific query context */
   @Getter
   @Setter
   protected Map<LensDriver, DriverQueryContext> driverQueryContextMap = new HashMap<LensDriver, DriverQueryContext>();
 
-  public DriverSelectorQueryContext(final Configuration queryConf, final Collection<LensDriver> drivers) {
+  public DriverSelectorQueryContext(final String userQuery, final Configuration queryConf, final Collection<LensDriver>
+    drivers) {
     for(LensDriver driver : drivers) {
       DriverQueryContext ctx = new DriverQueryContext(driver);
       ctx.setDriverSpecificConf(mergeConf(driver, queryConf));
+      ctx.setQuery(userQuery);
       driverQueryContextMap.put(driver, ctx);
     }
   }
@@ -162,8 +160,8 @@ public class DriverSelectorQueryContext {
     return driverQueryContextMap.get(getSelectedDriver()).getQuery();
   }
 
-  public String setSelectedDriverQuery(String driverQuery) {
-    return driverQueryContextMap.get(getSelectedDriver()).getQuery();
+  public void setSelectedDriverQuery(String driverQuery) {
+    driverQueryContextMap.get(getSelectedDriver()).setQuery(driverQuery);
   }
 
   public Collection<LensDriver> getDrivers() {
