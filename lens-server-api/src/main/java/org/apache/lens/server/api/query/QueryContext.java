@@ -128,21 +128,7 @@ public class QueryContext extends AbstractQueryContext implements Comparable<Que
   @Setter
   private String queryName;
 
-  /**
-   * Instantiates a new query context.
-   *
-   * @param query
-   *          the query
-   * @param user
-   *          the user
-   * @param conf
-   *          the conf
-   */
-  public QueryContext(String query, String user, Configuration conf) {
-    this(query, user, new LensConf(), conf,  new Date().getTime());
-  }
-
-  /**
+ /**
    * Instantiates a new query context.
    *
    * @param query
@@ -153,7 +139,7 @@ public class QueryContext extends AbstractQueryContext implements Comparable<Que
    *          the conf
    */
   public QueryContext(String query, String user, Configuration conf, Collection<LensDriver> drivers) {
-     this(query, user, new LensConf(), conf, drivers);
+     this(query, user, new LensConf(), conf, drivers, new Date().getTime());
   }
 
   /**
@@ -163,13 +149,12 @@ public class QueryContext extends AbstractQueryContext implements Comparable<Que
    *          the query
    * @param user
    *          the user
-   * @param qconf
-   *          the qconf
    * @param conf
    *          the conf
    */
-  public QueryContext(String query, String user, LensConf qconf, Configuration conf) {
-    this(query, user, qconf, conf, new Date().getTime());
+  public QueryContext(String query, String user, Configuration conf, Collection<LensDriver> drivers, long
+    submissionTime) {
+    this(query, user, new LensConf(), conf, drivers, submissionTime);
   }
 
   /**
@@ -188,6 +173,25 @@ public class QueryContext extends AbstractQueryContext implements Comparable<Que
    */
   public QueryContext(String query, String user, LensConf qconf, Configuration conf, Collection<LensDriver> drivers) {
     this(query, user, qconf, conf, drivers, null, new Date().getTime());
+  }
+
+  /**
+   * Instantiates a new query context.
+   *
+   * @param query
+   *          the query
+   * @param user
+   *          the user
+   * @param qconf
+   *          the qconf
+   * @param conf
+   *          the conf
+   * @param drivers
+   *          Collection of drivers
+   */
+  public QueryContext(String query, String user, LensConf qconf, Configuration conf, Collection<LensDriver> drivers,
+                      Long submissionTime) {
+    this(query, user, qconf, conf, drivers, null, submissionTime);
   }
 
   /**
@@ -222,59 +226,10 @@ public class QueryContext extends AbstractQueryContext implements Comparable<Que
          prepared.getDriverContext()
         .getSelectedDriver(), new Date().getTime());
     setDriverContext(prepared.getDriverContext());
+    setSelectedDriverQuery(prepared.getDriverQuery());
   }
 
-  /**
-   * Instantiates a new query context.
-   *
-   * @param query
-   *          the query
-   * @param user
-   *          the user
-   * @param conf
-   *          the conf
-   * @param submissionTime
-   *          the submission time
-   */
-  public QueryContext(String query, String user, Configuration conf, long submissionTime) {
-    this(query, user, new LensConf(), conf, submissionTime);
-  }
-
-
-  /**
-   * Instantiates a new query context.
-   *
-   * @param userQuery
-   *          the user query
-   * @param user
-   *          the user
-   * @param qconf
-   *          the qconf
-   * @param conf
-   *          the conf
-    * @param submissionTime
-   *          the submission time
-   */
-  public QueryContext(String userQuery, String user, LensConf qconf, Configuration conf,
-                     long submissionTime) {
-    super(userQuery, qconf, conf);
-    this.submissionTime = submissionTime;
-    this.queryHandle = new QueryHandle(UUID.randomUUID());
-    this.status = new QueryStatus(0.0f, Status.NEW, "Query just got created", false, null, null);
-    this.priority = Priority.NORMAL;
-    this.qconf = qconf;
-    this.conf = conf;
-    this.isPersistent = conf.getBoolean(LensConfConstants.QUERY_PERSISTENT_RESULT_SET,
-                                        LensConfConstants.DEFAULT_PERSISTENT_RESULT_SET);
-    this.isDriverPersistent = conf.getBoolean(LensConfConstants.QUERY_PERSISTENT_RESULT_INDRIVER,
-                                              LensConfConstants.DEFAULT_DRIVER_PERSISTENT_RESULT_SET);
-    this.userQuery = userQuery;
-    this.submittedUser = user;
-    this.qconf = qconf;
-    this.driverStatus = new DriverQueryStatus();
-  }
-
-  /**
+ /**
    * Instantiates a new query context.
    *
    * @param userQuery
@@ -297,7 +252,7 @@ public class QueryContext extends AbstractQueryContext implements Comparable<Que
     this.queryHandle = new QueryHandle(UUID.randomUUID());
     this.status = new QueryStatus(0.0f, Status.NEW, "Query just got created", false, null, null);
     this.priority = Priority.NORMAL;
-    this.qconf = qconf;
+    this.lensConf = qconf;
     this.conf = conf;
     this.isPersistent = conf.getBoolean(LensConfConstants.QUERY_PERSISTENT_RESULT_SET,
         LensConfConstants.DEFAULT_PERSISTENT_RESULT_SET);
@@ -306,9 +261,9 @@ public class QueryContext extends AbstractQueryContext implements Comparable<Que
     this.userQuery = userQuery;
     this.submittedUser = user;
     if(selectedDriver != null) {
-      this.getDriverContext().setSelectedDriver(selectedDriver);
+      this.setSelectedDriver(selectedDriver);
     }
-    this.qconf = qconf;
+    this.lensConf = qconf;
     this.driverStatus = new DriverQueryStatus();
   }
 
@@ -356,7 +311,7 @@ public class QueryContext extends AbstractQueryContext implements Comparable<Que
    *          the conf to set
    */
   public void updateConf(Map<String, String> confoverlay) {
-    qconf.getProperties().putAll(confoverlay);
+    lensConf.getProperties().putAll(confoverlay);
     for (Map.Entry<String, String> prop : confoverlay.entrySet()) {
       this.conf.set(prop.getKey(), prop.getValue());
     }
@@ -378,11 +333,11 @@ public class QueryContext extends AbstractQueryContext implements Comparable<Que
    */
   public LensQuery toLensQuery() {
     return new LensQuery(queryHandle, userQuery, submittedUser, priority, isPersistent,
-        getDriverContext().getSelectedDriver() != null ? getDriverContext().getSelectedDriver().getClass()
+        getSelectedDriver() != null ? getSelectedDriver().getClass()
           .getCanonicalName() : null,
-        getDriverContext().getSelectedDriverQuery(),
+        getSelectedDriverQuery(),
         status,
-        resultSetPath, driverOpHandle, qconf, submissionTime, launchTime, driverStatus.getDriverStartTime(),
+        resultSetPath, driverOpHandle, lensConf, submissionTime, launchTime, driverStatus.getDriverStartTime(),
         driverStatus.getDriverFinishTime(), endTime, closedTime, queryName);
   }
 

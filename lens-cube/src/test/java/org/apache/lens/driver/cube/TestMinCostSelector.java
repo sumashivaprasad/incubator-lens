@@ -19,6 +19,7 @@
 package org.apache.lens.driver.cube;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,14 @@ import org.testng.annotations.Test;
  * The Class TestMinCostSelector.
  */
 public class TestMinCostSelector {
+
+  private MockQueryContext createMockContext(String query, Configuration conf, LensConf lensConf,
+                                             Map<LensDriver, String> driverQueries) throws LensException {
+    MockQueryContext ctx = new MockQueryContext(query, lensConf, conf,  driverQueries.keySet());
+    ctx.getDriverContext().setDriverQueriesAndPlans(driverQueries);
+    return ctx;
+  }
+
   @Test
   public void testMinCostSelector() throws LensException {
     MinQueryCostSelector selector = new MinQueryCostSelector();
@@ -55,15 +64,14 @@ public class TestMinCostSelector {
     drivers.add(d2);
     String query = "test query";
     driverQueries.put(d1, query);
-    MockQueryContext ctx = new MockQueryContext(query, qconf, conf,  drivers);
-    ctx.getDriverContext().setDriverQueriesAndPlans(driverQueries);
+
+    MockQueryContext ctx = createMockContext(query, conf, qconf, driverQueries);
     LensDriver selected = selector.select(ctx, conf);
 
     Assert.assertEquals(d1, selected);
     driverQueries.put(d2, query);
     driverQueries.remove(d1);
-    ctx = new MockQueryContext(query, qconf,  conf, drivers);
-    ctx.getDriverContext().setDriverQueriesAndPlans(driverQueries);
+    ctx = createMockContext(query, conf, qconf, driverQueries);
 
     selected = selector.select(ctx, conf);
     Assert.assertEquals(d2, selected);
@@ -71,16 +79,14 @@ public class TestMinCostSelector {
     drivers.add(fd1);
     driverQueries.put(fd1, query);
 
-    ctx = new MockQueryContext(query, qconf,  conf, drivers);
-    ctx.getDriverContext().setDriverQueriesAndPlans(driverQueries);
+    ctx = createMockContext(query, conf, qconf, driverQueries);
     selected = selector.select(ctx, conf);
     Assert.assertEquals(d2, selected);
 
 
     drivers.add(fd2);
     driverQueries.put(fd2, query);
-    ctx = new MockQueryContext(query, qconf,  conf, drivers);
-    ctx.getDriverContext().setDriverQueriesAndPlans(driverQueries);
+    ctx = createMockContext(query, conf, qconf, driverQueries);
 
     selected = selector.select(ctx, conf);
     Assert.assertEquals(d2, selected);

@@ -344,7 +344,7 @@ public class TestRemoteHiveDriver extends TestHiveDriver {
       boolean driverAvailable = in.readBoolean();
       if (driverAvailable) {
         String clsName = in.readUTF();
-        ctx.getDriverContext().setSelectedDriver(driver);
+        ctx.setSelectedDriver(driver);
       }
     } finally {
       in.close();

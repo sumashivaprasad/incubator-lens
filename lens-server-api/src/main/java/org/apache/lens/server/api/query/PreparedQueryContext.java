@@ -92,7 +92,7 @@ public class PreparedQueryContext extends AbstractQueryContext implements Delaye
     this.preparedUser = user;
     this.prepareHandle = new QueryPrepareHandle(UUID.randomUUID());
     this.conf = conf;
-    this.qconf = qconf;
+    this.lensConf = qconf;
   }
 
   /*
@@ -130,7 +130,7 @@ public class PreparedQueryContext extends AbstractQueryContext implements Delaye
    *          the conf to set
    */
   public void updateConf(Map<String, String> confoverlay) {
-    qconf.getProperties().putAll(confoverlay);
+    lensConf.getProperties().putAll(confoverlay);
     for (Map.Entry<String, String> prop : confoverlay.entrySet()) {
       this.conf.set(prop.getKey(), prop.getValue());
     }
@@ -145,6 +145,6 @@ public class PreparedQueryContext extends AbstractQueryContext implements Delaye
     return new LensPreparedQuery(prepareHandle, userQuery, preparedTime, preparedUser,
         getDriverContext().getSelectedDriver() != null ? getDriverContext().getSelectedDriver().getClass()
           .getCanonicalName() : null, getDriverContext().getSelectedDriverQuery(),
-        qconf);
+        lensConf);
   }
 }

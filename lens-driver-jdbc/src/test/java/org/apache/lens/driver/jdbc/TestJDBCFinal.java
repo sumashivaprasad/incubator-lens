@@ -190,7 +190,7 @@ public class TestJDBCFinal {
 
     QueryContext context = new QueryContext(query, "SA", baseConf, drivers);
     context.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }} );
-    context.getDriverContext().setSelectedDriver(driver);
+    context.setSelectedDriver(driver);
 
     LensResultSet resultSet = driver.execute(context);
     assertNotNull(resultSet);
@@ -249,7 +249,7 @@ public class TestJDBCFinal {
 
     QueryContext context = new QueryContext(query, "SA", baseConf, drivers);
     context.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }} );
-    context.getDriverContext().setSelectedDriver(driver);
+    context.setSelectedDriver(driver);
     LensResultSet resultSet = driver.execute(context);
     assertNotNull(resultSet);
 

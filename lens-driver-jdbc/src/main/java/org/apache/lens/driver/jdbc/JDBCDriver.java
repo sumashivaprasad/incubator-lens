@@ -564,8 +564,9 @@ public class JDBCDriver implements LensDriver {
       explainQuery = rewrittenQuery.replaceAll("select ", "select "
           + explainKeyword + " ");
     LOG.info("Explain Query : " + explainQuery);
+    final LensDriver driver = (LensDriver) this;
     QueryContext explainQueryCtx = new QueryContext(explainQuery, null,
-        explainConf);
+        explainConf, new ArrayList<LensDriver>() {{ add(driver); }});
 
     QueryResult result = null;
     try {
@@ -594,7 +595,7 @@ public class JDBCDriver implements LensDriver {
   public void prepare(PreparedQueryContext pContext) throws LensException {
     checkConfigured();
     // Only create a prepared statement and then close it
-    String rewrittenQuery = rewriteQuery(pContext.getSelectedDriverQuery(), pContext.getConf());
+    String rewrittenQuery = rewriteQuery(pContext.getSelectedDriverQuery(), pContext.getSelectedDriverConf());
     Connection conn = null;
     PreparedStatement stmt = null;
     try {
@@ -665,10 +666,9 @@ public class JDBCDriver implements LensDriver {
   @Override
   public LensResultSet execute(QueryContext context) throws LensException {
     checkConfigured();
-    // Always use the driver rewritten query not user query. Since the
-    // conf we are passing here is query context conf, we need to add jdbc xml in resource path
+
     String rewrittenQuery = rewriteQuery(context.getSelectedDriverQuery(), context
-      .getDriverContext().getSelectedDriverConf());
+      .getSelectedDriverConf());
     LOG.info("Execute " + context.getQueryHandle());
     QueryResult result = executeInternal(context, rewrittenQuery);
     return result.getLensResultSet(true);

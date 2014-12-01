@@ -129,7 +129,7 @@ public class TestHiveDriver {
   protected QueryContext createContext(final String query, Configuration conf) throws LensException {
     QueryContext context = new QueryContext(query, "testuser", conf, drivers);
     context.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }} );
-    context.getDriverContext().setSelectedDriver(driver);
+    context.setSelectedDriver(driver);
     context.setLensSessionIdentifier(sessionid);
     return context;
   }
@@ -660,6 +660,8 @@ public class TestHiveDriver {
 
     // test execute prepare
     PreparedQueryContext pctx = new PreparedQueryContext("SELECT ID FROM test_explain", null, conf, drivers);
+    pctx.setSelectedDriver(driver);
+
     SessionState.setCurrentSessionState(ss);
     plan = driver.explainAndPrepare(pctx);
     QueryContext qctx = createContext(pctx, conf);
@@ -761,6 +763,7 @@ public class TestHiveDriver {
     SessionState.setCurrentSessionState(ss);
     String query2 = "SELECT DISTINCT ID FROM explain_test_1";
     PreparedQueryContext pctx = new PreparedQueryContext(query2, null, conf, drivers);
+    pctx.setSelectedDriver(driver);
     DriverQueryPlan plan2 = driver.explainAndPrepare(pctx);
     // assertNotNull(plan2.getResultDestination());
     Assert.assertEquals(0, driver.getHiveHandleSize());
@@ -803,7 +806,7 @@ public class TestHiveDriver {
       AbstractQueryContext ctx = new MockQueryContext("driverQuery1", new LensConf(), conf,
                                                       driverQuery1.keySet());
       ctx.getDriverContext().setDriverQueriesAndPlans(driverQuery1);
-      ctx.getDriverContext().setSelectedDriver(mockDriver);
+      ctx.setSelectedDriver(mockDriver);
 
       ((MockDriver.MockQueryPlan)ctx.getDriverContext().getDriverQueryPlan(mockDriver)).setPartitions
         (new HashMap<String,

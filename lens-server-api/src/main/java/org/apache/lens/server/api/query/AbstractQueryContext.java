@@ -45,25 +45,24 @@ public abstract class AbstractQueryContext implements Serializable {
 
   /** The query conf. */
   @Getter
-  protected LensConf qconf;
+  protected LensConf lensConf;
 
   /** The driver ctx */
   @Getter
   @Setter
-  protected DriverSelectorQueryContext driverContext;
+  transient protected DriverSelectorQueryContext driverContext;
 
-  protected AbstractQueryContext(final String query, final LensConf qconf, final Configuration conf) {
-    userQuery = query;
-    this.qconf = qconf;
-    this.conf = conf;
-  }
+  /** The selected Driver query. */
+  @Getter
+  protected String driverQuery;
 
   protected AbstractQueryContext(final String query, final LensConf qconf, final Configuration conf, final
     Collection<LensDriver> drivers) {
     driverContext = new DriverSelectorQueryContext(query, conf, drivers);
     userQuery = query;
-    this.qconf = qconf;
+    this.lensConf = qconf;
     this.conf = conf;
+    this.driverQuery = query;
   }
 
   /** Wrapper method for convenience on driver context
@@ -71,10 +70,45 @@ public abstract class AbstractQueryContext implements Serializable {
    * @return the selected driver's query
    */
   public String getSelectedDriverQuery() {
-    if(driverContext != null) {
+    if(driverQuery != null) {
+      return driverQuery;
+    } else if(driverContext != null) {
       return driverContext.getSelectedDriverQuery();
     }
     return null;
+  }
+
+  /** Wrapper method for convenience on driver context
+   *
+   * @return the selected driver's conf
+   */
+  public Configuration getSelectedDriverConf() {
+    if(driverContext != null) {
+      return driverContext.getSelectedDriverConf();
+    }
+    return null;
+  }
+
+  /**
+   * Sets the selected driver query for persistence and also in the driver context
+   * @param driverQuery
+   */
+  public void setSelectedDriverQuery(String driverQuery) {
+    this.driverQuery = driverQuery;
+    if(driverContext != null) {
+      driverContext.setSelectedDriverQuery(driverQuery);
+    }
+  }
+
+  /** Wrapper method for convenience on driver context
+   * @param driver  Lens driver
+   */
+
+  public void setSelectedDriver(LensDriver driver) {
+    if(driverContext != null) {
+      driverContext.setSelectedDriver(driver);
+      driverQuery = driverContext.getSelectedDriverQuery();
+    }
   }
 
   /** Wrapper method for convenience on driver context
