@@ -165,6 +165,15 @@ public class DriverSelectorQueryContext {
     driverQueryContextMap.get(driver).setDriverSpecificConf(conf);
   }
 
+  public void setDriverConf(LensDriver driver, Configuration conf, boolean merge) {
+    if(merge) {
+       Configuration mergedConf = mergeConf(driver, conf);
+      driverQueryContextMap.get(driver).setDriverSpecificConf(mergedConf);
+    } else {
+      setDriverConf(driver, conf);
+    }
+  }
+
   public void setSelectedDriverQuery(String driverQuery) {
     if(driverQueryContextMap != null && driverQueryContextMap.get(getSelectedDriver()) != null) {
       driverQueryContextMap.get(getSelectedDriver()).setQuery(driverQuery);

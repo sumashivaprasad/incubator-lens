@@ -210,7 +210,14 @@
         <groupId>joda-time</groupId>
         <artifactId>joda-time</artifactId>
       </dependency>
-
+      <dependency>
+        <groupId>org.powermock</groupId>
+        <artifactId>powermock-module-testng</artifactId>
+      </dependency>
+      <dependency>
+        <groupId>org.powermock</groupId>
+        <artifactId>powermock-api-mockito</artifactId>
+      </dependency>
     </dependencies>
 
     <build>

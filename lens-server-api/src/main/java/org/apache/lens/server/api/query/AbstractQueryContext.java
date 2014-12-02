@@ -39,6 +39,12 @@ public abstract class AbstractQueryContext implements Serializable {
   @Getter
   protected String userQuery;
 
+  /** The rewritten query. */
+  @Getter
+  @Setter
+  protected String rewrittenQuery;
+
+
   /** The merged Query conf. */
   @Getter @Setter
   transient protected Configuration conf;
