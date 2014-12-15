@@ -107,7 +107,7 @@ public class TestQueryService extends LensJerseyTest {
 
   /*
    * (non-Javadoc)
-   * 
+   *
    * @see org.glassfish.jersey.test.JerseyTest#setUp()
    */
   @BeforeTest
@@ -128,7 +128,7 @@ public class TestQueryService extends LensJerseyTest {
 
   /*
    * (non-Javadoc)
-   * 
+   *
    * @see org.glassfish.jersey.test.JerseyTest#tearDown()
    */
   @AfterTest
@@ -145,7 +145,7 @@ public class TestQueryService extends LensJerseyTest {
 
   /*
    * (non-Javadoc)
-   * 
+   *
    * @see org.glassfish.jersey.test.JerseyTest#configure()
    */
   @Override
@@ -155,7 +155,7 @@ public class TestQueryService extends LensJerseyTest {
 
   /*
    * (non-Javadoc)
-   * 
+   *
    * @see org.glassfish.jersey.test.JerseyTest#configureClient(org.glassfish.jersey.client.ClientConfig)
    */
   @Override
@@ -167,7 +167,7 @@ public class TestQueryService extends LensJerseyTest {
   private static String testTable = "TEST_TABLE";
 
   /** The Constant TEST_DATA_FILE. */
-  public static final String TEST_DATA_FILE = "../lens-driver-hive/testdata/testdata2.txt";
+  public static final String TEST_DATA_FILE = "./testdata/testdata2.txt";
 
   /**
    * Creates the table.
@@ -745,7 +745,7 @@ public class TestQueryService extends LensJerseyTest {
     assertTrue(ctx.getFinishTime() > 0);
     Assert.assertEquals(ctx.getStatus().getStatus(), QueryStatus.Status.SUCCESSFUL);
 
-    validatePersistedResult(handle, target(), lensSessionId, true);
+    validatePersistedResult(handle, target(), lensSessionId, new String[][]{{"ID", "INT"}, {"IDSTR", "STRING"}}, true);
 
     // test cancel query
     final QueryHandle handle2 = target.request().post(Entity.entity(mp, MediaType.MULTIPART_FORM_DATA_TYPE),
@@ -765,6 +765,33 @@ public class TestQueryService extends LensJerseyTest {
     } else {
       Assert.assertTrue(ctx2.getStatus().getStatus() == QueryStatus.Status.CANCELED);
     }
+
+    // Test http download end point
+    LOG.info("Starting httpendpoint test");
+    final FormDataMultiPart mp3 = new FormDataMultiPart();
+    mp3.bodyPart(new FormDataBodyPart(FormDataContentDisposition.name("sessionid").build(), lensSessionId,
+        MediaType.APPLICATION_XML_TYPE));
+    mp3.bodyPart(new FormDataBodyPart(FormDataContentDisposition.name("query").build(), "select ID, IDSTR from "
+        + testTable));
+    mp3.bodyPart(new FormDataBodyPart(FormDataContentDisposition.name("operation").build(), "execute"));
+    LensConf conf = new LensConf();
+    conf.addProperty(LensConfConstants.QUERY_PERSISTENT_RESULT_SET, "true");
+
+    mp3.bodyPart(new FormDataBodyPart(FormDataContentDisposition.name("conf").fileName("conf").build(), conf,
+        MediaType.APPLICATION_XML_TYPE));
+    final QueryHandle handle3 = target.request().post(Entity.entity(mp3, MediaType.MULTIPART_FORM_DATA_TYPE),
+        QueryHandle.class);
+
+    // Get query
+    ctx = target.path(handle3.toString()).queryParam("sessionid", lensSessionId).request().get(LensQuery.class);
+    // wait till the query finishes
+    stat = ctx.getStatus();
+    while (!stat.isFinished()) {
+      ctx = target.path(handle3.toString()).queryParam("sessionid", lensSessionId).request().get(LensQuery.class);
+      stat = ctx.getStatus();
+      Thread.sleep(1000);
+    }
+    validateHttpEndPoint(target(), null, handle3, null);
   }
 
   /**
@@ -839,10 +866,12 @@ public class TestQueryService extends LensJerseyTest {
    *           Signals that an I/O exception has occurred.
    */
   static void validatePersistedResult(QueryHandle handle, WebTarget parent, LensSessionHandle lensSessionId,
-      boolean isDir) throws IOException {
+      String[][] schema, boolean isDir) throws IOException {
     final WebTarget target = parent.path("queryapi/queries");
     // fetch results
-    validateResultSetMetadata(handle, parent, lensSessionId);
+    validateResultSetMetadata(handle, "",
+      schema,
+      parent, lensSessionId);
 
     String presultset = target.path(handle.toString()).path("resultset").queryParam("sessionid", lensSessionId)
         .request().get(String.class);
@@ -935,11 +964,28 @@ public class TestQueryService extends LensJerseyTest {
   static void validatePersistentResult(PersistentQueryResult resultset, QueryHandle handle, boolean isDir)
       throws IOException {
     List<String> actualRows = readResultSet(resultset, handle, isDir);
-    Assert.assertEquals(actualRows.get(0), "1one");
-    Assert.assertEquals(actualRows.get(1), "\\Ntwo");
-    Assert.assertEquals(actualRows.get(2), "3\\N");
-    Assert.assertEquals(actualRows.get(3), "\\N\\N");
-    Assert.assertEquals(actualRows.get(4), "5");
+    validatePersistentResult(actualRows);
+  }
+
+  static void validatePersistentResult(List<String> actualRows) {
+    String[] expected1 = new String[]{
+      "1one",
+      "\\Ntwo123item1item2",
+      "3\\Nitem1item2",
+      "\\N\\N",
+      "5nothing"
+    };
+    String[] expected2 = new String[]{
+      "1one[][]",
+      "\\Ntwo[1,2,3][\"item1\",\"item2\"]",
+      "3\\N[][\"item1\",\"item2\"]",
+      "\\N\\N[][]",
+      "5[][\"nothing\"]"
+    };
+    for(int i = 0; i < actualRows.size(); i++) {
+      Assert.assertEquals(
+        expected1[i].indexOf(actualRows.get(i)) == 0 || expected2[i].indexOf(actualRows.get(i)) == 0, true);
+    }
   }
 
   /**
@@ -958,6 +1004,7 @@ public class TestQueryService extends LensJerseyTest {
    */
   static void validateHttpEndPoint(WebTarget parent, LensSessionHandle lensSessionId, QueryHandle handle,
       String redirectUrl) throws IOException {
+    LOG.info("@@@ validateHttpEndPoint sessionid " + lensSessionId);
     Response response = parent.path("queryapi/queries/" + handle.toString() + "/httpresultset")
         .queryParam("sessionid", lensSessionId).request().get();
 
@@ -972,11 +1019,7 @@ public class TestQueryService extends LensJerseyTest {
 
       String result = new String(bos.toByteArray());
       List<String> actualRows = Arrays.asList(result.split("\n"));
-      Assert.assertEquals(actualRows.get(0), "1one");
-      Assert.assertEquals(actualRows.get(1), "\\Ntwo");
-      Assert.assertEquals(actualRows.get(2), "3\\N");
-      Assert.assertEquals(actualRows.get(3), "\\N\\N");
-      Assert.assertEquals(actualRows.get(4), "5");
+      validatePersistentResult(actualRows);
     } else {
       Assert.assertEquals(Response.Status.SEE_OTHER.getStatusCode(), response.getStatus());
       Assert.assertTrue(response.getHeaderString("Location").contains(redirectUrl));
@@ -1003,6 +1046,7 @@ public class TestQueryService extends LensJerseyTest {
       Assert.assertEquals(response.getStatus(), Response.Status.NOT_FOUND.getStatusCode());
     } catch (NotFoundException e) {
       // expected
+      e.printStackTrace();
     }
 
   }
@@ -1054,7 +1098,10 @@ public class TestQueryService extends LensJerseyTest {
     Assert.assertEquals(ctx.getStatus().getStatus(), QueryStatus.Status.SUCCESSFUL);
 
     // fetch results
-    validateResultSetMetadata(handle, target(), lensSessionId);
+    validateResultSetMetadata(handle, "",
+      new String[][]{{"ID", "INT"}, {"IDSTR", "STRING"}},
+      target(), lensSessionId);
+
 
     InMemoryQueryResult resultset = target.path(handle.toString()).path("resultset")
         .queryParam("sessionid", lensSessionId).request().get(InMemoryQueryResult.class);
@@ -1076,28 +1123,27 @@ public class TestQueryService extends LensJerseyTest {
     // test post execute op
     final WebTarget target = target().path("queryapi/queries");
 
-
     final FormDataMultiPart drop = new FormDataMultiPart();
     LensConf conf = new LensConf();
     conf.addProperty(LensConfConstants.QUERY_PERSISTENT_RESULT_INDRIVER, "false");
     drop.bodyPart(new FormDataBodyPart(FormDataContentDisposition.name("sessionid").build(), lensSessionId,
-      MediaType.APPLICATION_XML_TYPE));
+        MediaType.APPLICATION_XML_TYPE));
     drop.bodyPart(new FormDataBodyPart(FormDataContentDisposition.name("query").build(),
-      "drop table if exists temp_output"));
+        "drop table if exists temp_output"));
     drop.bodyPart(new FormDataBodyPart(FormDataContentDisposition.name("operation").build(), "execute"));
     drop.bodyPart(new FormDataBodyPart(FormDataContentDisposition.name("conf").fileName("conf").build(), conf,
-      MediaType.APPLICATION_XML_TYPE));
+        MediaType.APPLICATION_XML_TYPE));
     final QueryHandle dropHandle = target.request().post(Entity.entity(drop, MediaType.MULTIPART_FORM_DATA_TYPE),
-      QueryHandle.class);
+        QueryHandle.class);
 
     Assert.assertNotNull(dropHandle);
 
     // Get query
     LensQuery ctx = target.path(dropHandle.toString()).queryParam("sessionid", lensSessionId).request()
-      .get(LensQuery.class);
+        .get(LensQuery.class);
     Assert.assertTrue(ctx.getStatus().getStatus().equals(Status.QUEUED)
-      || ctx.getStatus().getStatus().equals(Status.LAUNCHED) || ctx.getStatus().getStatus().equals(Status.RUNNING)
-      || ctx.getStatus().getStatus().equals(Status.SUCCESSFUL));
+        || ctx.getStatus().getStatus().equals(Status.LAUNCHED) || ctx.getStatus().getStatus().equals(Status.RUNNING)
+        || ctx.getStatus().getStatus().equals(Status.SUCCESSFUL));
 
     // wait till the query finishes
     QueryStatus stat = ctx.getStatus();
@@ -1107,7 +1153,6 @@ public class TestQueryService extends LensJerseyTest {
       Thread.sleep(1000);
     }
     Assert.assertEquals(ctx.getStatus().getStatus(), QueryStatus.Status.SUCCESSFUL);
-
 
     final FormDataMultiPart mp = new FormDataMultiPart();
     conf = new LensConf();
@@ -1125,8 +1170,7 @@ public class TestQueryService extends LensJerseyTest {
     Assert.assertNotNull(handle);
 
     // Get query
-    ctx = target.path(handle.toString()).queryParam("sessionid", lensSessionId).request()
-        .get(LensQuery.class);
+    ctx = target.path(handle.toString()).queryParam("sessionid", lensSessionId).request().get(LensQuery.class);
     Assert.assertTrue(ctx.getStatus().getStatus().equals(Status.QUEUED)
         || ctx.getStatus().getStatus().equals(Status.LAUNCHED) || ctx.getStatus().getStatus().equals(Status.RUNNING)
         || ctx.getStatus().getStatus().equals(Status.SUCCESSFUL));
@@ -1166,7 +1210,8 @@ public class TestQueryService extends LensJerseyTest {
     Assert.assertEquals(ctx.getStatus().getStatus(), QueryStatus.Status.SUCCESSFUL);
 
     // fetch results
-    validateResultSetMetadata(handle2, "temp_output.", target(), lensSessionId);
+    validateResultSetMetadata(handle2, "temp_output.", new String[][]{{"ID", "INT"}, {"IDSTR", "STRING"}},
+      target(), lensSessionId);
 
     InMemoryQueryResult resultset = target.path(handle2.toString()).path("resultset")
         .queryParam("sessionid", lensSessionId).request().get(InMemoryQueryResult.class);
@@ -1184,7 +1229,9 @@ public class TestQueryService extends LensJerseyTest {
    *          the lens session id
    */
   static void validateResultSetMetadata(QueryHandle handle, WebTarget parent, LensSessionHandle lensSessionId) {
-    validateResultSetMetadata(handle, "", parent, lensSessionId);
+    validateResultSetMetadata(handle, "",
+      new String[][]{{"ID", "INT"}, {"IDSTR", "STRING"}, {"IDARR", "ARRAY"}, {"IDSTRARR", "ARRAY"}},
+      parent, lensSessionId);
   }
 
   /**
@@ -1199,19 +1246,19 @@ public class TestQueryService extends LensJerseyTest {
    * @param lensSessionId
    *          the lens session id
    */
-  static void validateResultSetMetadata(QueryHandle handle, String outputTablePfx, WebTarget parent,
+  static void validateResultSetMetadata(QueryHandle handle, String outputTablePfx, String[][] columns, WebTarget parent,
       LensSessionHandle lensSessionId) {
     final WebTarget target = parent.path("queryapi/queries");
 
     QueryResultSetMetadata metadata = target.path(handle.toString()).path("resultsetmetadata")
         .queryParam("sessionid", lensSessionId).request().get(QueryResultSetMetadata.class);
-    Assert.assertEquals(metadata.getColumns().size(), 2);
-    assertTrue(metadata.getColumns().get(0).getName().toLowerCase().equals((outputTablePfx + "ID").toLowerCase())
-        || metadata.getColumns().get(0).getName().toLowerCase().equals("ID".toLowerCase()));
-    assertEquals("INT".toLowerCase(), metadata.getColumns().get(0).getType().name().toLowerCase());
-    assertTrue(metadata.getColumns().get(1).getName().toLowerCase().equals((outputTablePfx + "IDSTR").toLowerCase())
-        || metadata.getColumns().get(0).getName().toLowerCase().equals("IDSTR".toLowerCase()));
-    assertEquals("STRING".toLowerCase(), metadata.getColumns().get(1).getType().name().toLowerCase());
+    Assert.assertEquals(metadata.getColumns().size(), columns.length);
+    for(int i = 0; i < columns.length; i++) {
+      assertTrue(metadata.getColumns().get(i).getName().toLowerCase().equals
+        ((outputTablePfx + columns[i][0]).toLowerCase())
+        || metadata.getColumns().get(i).getName().toLowerCase().equals(columns[i][0].toLowerCase()));
+      assertEquals(columns[i][1].toLowerCase(), metadata.getColumns().get(i).getType().name().toLowerCase());
+    }
   }
 
   /**

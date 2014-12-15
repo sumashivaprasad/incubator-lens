@@ -19,19 +19,20 @@
 
 package org.apache.lens.cube.parse;
 
-import static org.apache.lens.cube.parse.CubeTestSetup.getDbName;
-import static org.apache.lens.cube.parse.CubeTestSetup.twoDaysRange;
+import static org.apache.lens.cube.parse.CubeTestSetup.*;
 
 import java.util.*;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.hive.conf.HiveConf;
+import org.apache.hadoop.hive.ql.parse.ParseException;
 import org.apache.hadoop.hive.ql.parse.SemanticException;
 import org.apache.lens.cube.metadata.AbstractCubeTable;
 import org.apache.lens.cube.metadata.CubeInterface;
 import org.apache.lens.cube.metadata.CubeMetastoreClient;
 import org.apache.lens.cube.metadata.Dimension;
 import org.apache.lens.cube.metadata.SchemaGraph;
+import org.apache.lens.cube.metadata.StorageConstants;
 import org.apache.lens.cube.metadata.SchemaGraph.TableRelationship;
 import org.apache.lens.cube.parse.CubeQueryConfUtil;
 import org.apache.lens.cube.parse.CubeQueryContext;
@@ -51,6 +52,8 @@ public class TestJoinResolver extends TestQueryRewrite {
   public void setupInstance() throws Exception {
     hconf.set(CubeQueryConfUtil.DRIVER_SUPPORTED_STORAGES, "C1");
     hconf.setBoolean(CubeQueryConfUtil.DISABLE_AUTO_JOINS, false);
+    hconf.setBoolean(CubeQueryConfUtil.ENABLE_GROUP_BY_TO_SELECT, true);
+    hconf.setBoolean(CubeQueryConfUtil.ENABLE_SELECT_TO_GROUPBY, true);
     this.metastore = CubeMetastoreClient.getInstance(hconf);
   }
 
@@ -319,7 +322,7 @@ public class TestJoinResolver extends TestQueryRewrite {
     String hql = ctx.toHQL();
     System.out.println("testDimOnlyQuery@@@HQL:" + hql);
     System.out.println("testDimOnlyQuery@@@Resolved join clause: " + getAutoResolvedFromString(ctx));
-    Assert.assertTrue(hql.contains("WHERE ((citydim.dt = 'latest')) LIMIT 10"));
+    Assert.assertTrue(hql.matches(".*?WHERE\\W+citydim.dt = 'latest'\\W+LIMIT 10.*?"));
     Assert.assertEquals(getDbName() + "c1_citytable citydim inner join " + getDbName()
         + "c1_statetable statedim on citydim.stateid = statedim.id and (statedim.dt = 'latest')",
         getAutoResolvedFromString(ctx).trim());
@@ -347,7 +350,7 @@ public class TestJoinResolver extends TestQueryRewrite {
     Assert.assertEquals(getDbName() + "c1_citytable citydim left outer join " + getDbName()
         + "c1_statetable statedim on citydim.stateid = statedim.id" + " and (statedim.dt = 'latest')",
         getAutoResolvedFromString(context).trim());
-    Assert.assertTrue(hql.contains("WHERE ((citydim.dt = 'latest'))"));
+    Assert.assertTrue(hql.matches(".*?WHERE\\W+citydim.dt = 'latest'\\W+.*?"));
 
     conf.set(CubeQueryConfUtil.JOIN_TYPE_KEY, "RIGHTOUTER");
     rewriter = new CubeQueryRewriter(conf);
@@ -358,7 +361,7 @@ public class TestJoinResolver extends TestQueryRewrite {
     Assert.assertEquals(getDbName() + "c1_citytable citydim right outer join " + getDbName()
         + "c1_statetable statedim on citydim.stateid = statedim.id " + "and (citydim.dt = 'latest')",
         getAutoResolvedFromString(context).trim());
-    Assert.assertTrue(hql.contains("WHERE ((statedim.dt = 'latest'))"));
+    Assert.assertTrue(hql.matches(".*?WHERE\\W+statedim.dt = 'latest'\\W+.*?"));
 
     conf.set(CubeQueryConfUtil.JOIN_TYPE_KEY, "FULLOUTER");
     rewriter = new CubeQueryRewriter(conf);
@@ -370,5 +373,111 @@ public class TestJoinResolver extends TestQueryRewrite {
         + "c1_statetable statedim on citydim.stateid = statedim.id "
         + "and (citydim.dt = 'latest') and (statedim.dt = 'latest')", getAutoResolvedFromString(context).trim());
     Assert.assertTrue(!hql.contains("WHERE"));
+  }
+
+  @Test
+  public void testJoinChains() throws SemanticException, ParseException {
+    String query = "select citystate.name, sum(msr2) from basecube where " + twoDaysRange + " group by citystate.name";
+    String hqlQuery = rewrite(query, hconf);
+    String expected = getExpectedQuery("basecube", "select citystate.name, sum(basecube.msr2) FROM ",
+      " join " + getDbName() + "c1_citytable citydim ON baseCube.cityid = citydim.id and citydim.dt = 'latest'" +
+      " join " + getDbName() + "c1_statetable cityState ON citydim.stateid=cityState.id and cityState.dt= 'latest'",
+      null, "group by citystate.name",
+      null, getWhereForDailyAndHourly2days("basecube", "c1_testfact1_base"));
+    TestCubeRewriter.compareQueries(expected, hqlQuery);
+
+    query = "select cubestate.name, sum(msr2) from basecube where " + twoDaysRange + " group by cubestate.name";
+    hqlQuery = rewrite(query, hconf);
+    expected = getExpectedQuery("basecube", "select cubestate.name, sum(basecube.msr2) FROM ",
+      " join " + getDbName() + "c1_statetable cubestate ON basecube.stateid=cubeState.id and cubeState.dt= 'latest'",
+      null, "group by cubestate.name",
+      null, getWhereForDailyAndHourly2days("basecube", "c1_testfact1_base"));
+    TestCubeRewriter.compareQueries(expected, hqlQuery);
+
+    query = "select cityStateCapital, sum(msr2) from basecube where " + twoDaysRange;
+    hqlQuery = rewrite(query, hconf);
+    expected = getExpectedQuery("basecube", "select citystate.capital, sum(basecube.msr2) FROM ",
+        " join " + getDbName() + "c1_citytable citydim ON baseCube.cityid = citydim.id and citydim.dt = 'latest'" +
+        " join " + getDbName() + "c1_statetable cityState ON citydim.stateid=cityState.id and cityState.dt= 'latest'",
+        null, "group by citystate.capital",
+        null, getWhereForDailyAndHourly2days("basecube", "c1_testfact1_base"));
+    TestCubeRewriter.compareQueries(expected, hqlQuery);
+
+    query = "select basecube.cityStateCapital, sum(msr2) from basecube where " + twoDaysRange;
+    hqlQuery = rewrite(query, hconf);
+    TestCubeRewriter.compareQueries(expected, hqlQuery);
+
+    query = "select cityStateCapital, sum(msr2) from basecube where " + twoDaysRange + " order by cityStateCapital";
+    hqlQuery = rewrite(query, hconf);
+    expected = getExpectedQuery("basecube", "select citystate.capital, sum(basecube.msr2) FROM ",
+        " join " + getDbName() + "c1_citytable citydim ON baseCube.cityid = citydim.id and citydim.dt = 'latest'" +
+        " join " + getDbName() + "c1_statetable cityState ON citydim.stateid=cityState.id and cityState.dt= 'latest'",
+        null, "group by citystate.capital order by citystate.capital asc",
+        null, getWhereForDailyAndHourly2days("basecube", "c1_testfact1_base"));
+    TestCubeRewriter.compareQueries(expected, hqlQuery);
+
+    query = "select citystate.name, cityStateCapital, sum(msr2) from basecube where " + twoDaysRange;
+    hqlQuery = rewrite(query, hconf);
+    expected = getExpectedQuery("basecube", "select citystate.name, citystate.capital, sum(basecube.msr2) FROM ",
+        " join " + getDbName() + "c1_citytable citydim ON baseCube.cityid = citydim.id and citydim.dt = 'latest'" +
+        " join " + getDbName() + "c1_statetable cityState ON citydim.stateid=cityState.id and cityState.dt= 'latest'",
+        null, "group by citystate.name, citystate.capital",
+        null, getWhereForDailyAndHourly2days("basecube", "c1_testfact1_base"));
+    TestCubeRewriter.compareQueries(expected, hqlQuery);
+
+    //TODO add below tests once support for multichains with same destination is available
+    query = "select citystate.name, cubestate.name, msr2 from basecube where " + twoDaysRange;
+    query = "select cubestate.name, cityStateCapital msr2 from basecube where " + twoDaysRange;
+  }
+
+  @Test
+  public void testMultiPaths() throws SemanticException, ParseException {
+    String query = "select testdim3.name, sum(msr2) from testcube where " + twoDaysRange;
+    String hqlQuery = rewrite(query, hconf);
+    String expected = getExpectedQuery("testcube", "select testdim3.name, sum(testcube.msr2) FROM ",
+      " join " + getDbName() + "c1_testdim3tbl testdim3 ON testcube.testdim3id = testdim3.id and testdim3.dt = 'latest'",
+      null, "group by testdim3.name",
+      null, getWhereForDailyAndHourly2days("testcube", "c1_summary1"));
+    TestCubeRewriter.compareQueries(expected, hqlQuery);
+
+    // hit a fact where there is no direct path
+    query = "select testdim3.name, avg(msr2) from testcube where " + twoDaysRange;
+    hqlQuery = rewrite(query, hconf);
+    expected = getExpectedQuery("testcube", "select testdim3.name, avg(testcube.msr2) FROM ",
+      " join " + getDbName() + "c1_testdim2tbl testdim2 ON testcube.dim2 = testdim2.id and testdim2.dt = 'latest'" +
+      " join " + getDbName() + "c1_testdim3tbl testdim3 ON testdim2.testdim3id = testdim3.id and testdim3.dt = 'latest'",
+      null, "group by testdim3.name",
+      null, getWhereForHourly2days("testcube", "c1_testfact2_raw"));
+    TestCubeRewriter.compareQueries(expected, hqlQuery);
+
+    // resolve denorm variable through multi hop chain paths
+    query = "select testdim3id, avg(msr2) from testcube where " + twoDaysRange;
+    hqlQuery = rewrite(query, hconf);
+    expected = getExpectedQuery("testcube", "select testdim3.id, avg(testcube.msr2) FROM ",
+      " join " + getDbName() + "c1_testdim2tbl testdim2 ON testcube.dim2 = testdim2.id and testdim2.dt = 'latest'" +
+      " join " + getDbName() + "c1_testdim3tbl testdim3 ON testdim2.testdim3id = testdim3.id and testdim3.dt = 'latest'",
+      null, "group by testdim3.id",
+      null, getWhereForHourly2days("testcube", "c1_testfact2_raw"));
+    TestCubeRewriter.compareQueries(expected, hqlQuery);
+
+    // test multi hops
+    query = "select testdim4.name, avg(msr2) from testcube where " + twoDaysRange;
+    hqlQuery = rewrite(query, hconf);
+    expected = getExpectedQuery("testcube", "select testdim4.name, avg(testcube.msr2) FROM ",
+      " join " + getDbName() + "c1_testdim2tbl testdim2 ON testcube.dim2 = testdim2.id and testdim2.dt = 'latest'" +
+      " join " + getDbName() + "c1_testdim3tbl testdim3 ON testdim2.testdim3id = testdim3.id and testdim3.dt = 'latest'"
+      + " join " + getDbName() + "c1_testdim4tbl testdim4 ON testdim3.testDim4id = testdim4.id and" +
+      " testdim4.dt = 'latest'", null, "group by testdim4.name", null,
+      getWhereForHourly2days("testcube", "c1_testfact2_raw"));
+    TestCubeRewriter.compareQueries(expected, hqlQuery);
+
+    query = "select testdim4.name, sum(msr2) from testcube where " + twoDaysRange;
+    hqlQuery = rewrite(query, hconf);
+    expected = getExpectedQuery("testcube", "select testdim4.name, sum(testcube.msr2) FROM ",
+      " join " + getDbName() + "c1_testdim3tbl testdim3 ON testcube.testdim3id = testdim3.id and testdim3.dt = 'latest'"
+      + " join " + getDbName() + "c1_testdim4tbl testdim4 ON testdim3.testDim4id = testdim4.id and" +
+      " testdim4.dt = 'latest'", null, "group by testdim4.name", null,
+      getWhereForDailyAndHourly2days("testcube", "c1_summary1"));
+    TestCubeRewriter.compareQueries(expected, hqlQuery);
   }
 }

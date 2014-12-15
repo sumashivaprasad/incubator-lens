@@ -77,13 +77,19 @@ public class ColumnarSQLRewriter implements QueryRewriter {
   protected StringBuilder allSubQueries = new StringBuilder();
 
   /** The fact keys. */
-  protected StringBuilder factKeys = new StringBuilder();
+  Set<String> factKeys = new HashSet<String>();
 
   /** The rewritten query. */
   protected StringBuilder rewrittenQuery = new StringBuilder();
 
   /** The merged query. */
   protected StringBuilder mergedQuery = new StringBuilder();
+  
+  /** The fact filters for push down   */
+  protected StringBuilder factFilterPush = new StringBuilder();
+  
+  /** The join list. */
+  protected ArrayList<String> joinList = new ArrayList<String>();
 
   /** The join condition. */
   protected StringBuilder joinCondition = new StringBuilder();
@@ -105,6 +111,9 @@ public class ColumnarSQLRewriter implements QueryRewriter {
 
   /** The map agg tab alias. */
   private Map<String, String> mapAggTabAlias = new HashMap<String, String>();
+
+  /** The map aliases. */
+  private Map<String, String> mapAliases = new HashMap<String, String>();
 
   /** The Constant LOG. */
   private static final Log LOG = LogFactory.getLog(ColumnarSQLRewriter.class);
@@ -304,10 +313,7 @@ public class ColumnarSQLRewriter implements QueryRewriter {
         // User has specified a join condition for filter pushdown.
         joinFilter = HQLParser.getString((ASTNode) node.getChild(2));
       }
-
-      joinCondition.append(" ").append(joinType).append(" ").append(rightTable).append(" on ").append(joinFilter)
-          .append(" ");
-
+      joinList.add(joinType + (" ") + (rightTable) + (" on ")+ (joinFilter) + (" "));
     }
 
     for (int i = 0; i < node.getChildCount(); i++) {
@@ -316,6 +322,21 @@ public class ColumnarSQLRewriter implements QueryRewriter {
     }
   }
 
+  /**
+   * Construct join chain
+   * 
+   * @return
+   */
+  public StringBuilder constructJoinChain() {
+    getJoinCond(fromAST);
+    Collections.reverse(joinList);
+
+    for (String key : joinList) {
+      joinCondition.append(" ").append(key);
+    }
+    return joinCondition;
+  }
+  
   /*
    * Get filter conditions if user has specified a join condition for filter pushdown.
    */
@@ -344,6 +365,95 @@ public class ColumnarSQLRewriter implements QueryRewriter {
       ASTNode child = (ASTNode) node.getChild(i);
       getFilterInJoinCond(child);
     }
+  }
+  
+  /**
+   * Get the fact alias
+   * 
+   * @return
+   */
+
+  public String getFactAlias() {
+
+    String factTable = "";
+    String factAlias = "";
+    String factNameAndAlis = getFactNameAlias(fromAST);
+    String[] keys = factNameAndAlis.split(" +");
+    if (keys.length == 2) {
+      factTable = keys[0];
+      factAlias = keys[1];
+    }
+    return factAlias;
+  }
+  
+  /**
+   * Get fact filters for pushdown
+   * 
+   * @param node
+   */
+
+  public void factFilterPushDown(ASTNode node) {
+    if (node == null) {
+      LOG.debug("Join AST is null " + node);
+      return;
+    }
+
+    String filterCond = "";
+    if (node.getToken().getType() == HiveParser.KW_AND) {
+      ASTNode right = (ASTNode) node.getChild(1);
+      filterCond = HQLParser.getString((ASTNode) right);
+    }
+    String factAlias = getFactAlias();
+
+    if (filterCond.matches("(.*)".toString().concat(factAlias).concat("(.*)"))) {
+      factFilterPush.append(filterCond).append(" and ");
+    }
+
+    for (int i = 0; i < node.getChildCount(); i++) {
+      ASTNode child = (ASTNode) node.getChild(i);
+      factFilterPushDown(child);
+    }
+  }
+   
+  /**
+   * Get fact keys used in the AST
+   * 
+   * @param node
+   */
+  public void getFactKeysFromNode(ASTNode node) {
+    if (node == null) {
+      LOG.debug("AST is null " + node);
+      return;
+    }
+    if (node.getToken().getType() == HiveParser.DOT && node.getParent().getChild(0).getType() != HiveParser.Identifier) {
+
+      String table = HQLParser.findNodeByPath(node, TOK_TABLE_OR_COL, Identifier).toString();
+      String column = node.getChild(1).toString().toLowerCase();
+
+      String factAlias = getFactAlias();
+
+      if (table.equals(factAlias))
+        factKeys.add(factAlias + "." + column);
+    }
+
+    for (int i = 0; i < node.getChildCount(); i++) {
+      ASTNode child = (ASTNode) node.getChild(i);
+      getFactKeysFromNode(child);
+    }
+  }
+
+  /**
+   * Get all fact keys used in all ASTs
+   * 
+   * @param node
+   */
+  public void getAllFactKeys() {
+    if (fromAST != null)
+      getFactKeysFromNode(fromAST);
+    if (whereAST != null)
+      getFactKeysFromNode(whereAST);
+    if (selectAST != null)
+      getFactKeysFromNode(selectAST);
   }
 
   /*
@@ -374,14 +484,14 @@ public class ColumnarSQLRewriter implements QueryRewriter {
             .replaceAll("[(,)]", "");
         String dimJoinKeys = HQLParser.getString((ASTNode) right).toString().replaceAll("\\s+", "")
             .replaceAll("[(,)]", "");
-
-        String dimTableName = dimJoinKeys.substring(0, dimJoinKeys.indexOf("."));
-        factKeys.append(factJoinKeys).append(",");
+        String dimTableName = dimJoinKeys.substring(0, dimJoinKeys.indexOf("__"));
 
         // Construct part of subquery by referring join condition
         // fact.fact_key = dim_table.dim_key
         // eg. "fact_key in ( select dim_key from dim_table where "
-        String queryphase1 = factJoinKeys.concat(" in ").concat(" ( ").concat(" select ").concat(dimJoinKeys)
+        String queryphase1 = factJoinKeys.concat(" in ").concat(" ( ").concat(" select ")
+            .concat(dimTableName).concat(" ")
+            .concat(dimJoinKeys.substring(dimJoinKeys.lastIndexOf(".")))
             .concat(" from ").concat(dimTableName).concat(" where ");
 
         getAllFilters(whereAST);
@@ -400,7 +510,8 @@ public class ColumnarSQLRewriter implements QueryRewriter {
           for (int i = 0; i < setAllFilters.toArray().length; i++) {
             if (setAllFilters.toArray() != null) {
               if (setAllFilters.toArray()[i].toString().matches("(.*)".toString().concat(dimTableName).concat("(.*)"))) {
-                String filters2 = setAllFilters.toArray()[i].toString().concat(" and ");
+                String filters2 = setAllFilters.toArray()[i].toString() ;
+                filters2 = filters2.replaceAll(getTableOrAlias(filters2,"alias"),getTableOrAlias(filters2,"table")).concat(" and ");
                 factFilters.append(filters2);
               }
             }
@@ -418,6 +529,23 @@ public class ColumnarSQLRewriter implements QueryRewriter {
       ASTNode child = (ASTNode) node.getChild(i);
       buildSubqueries(child);
     }
+  }
+  
+  /**
+   * Get the table or alias from the given key string
+   *
+   * @param keyString
+   * @param type
+   * @return
+   */
+
+  public String getTableOrAlias(String keyString, String type) {
+    String ref = "";
+    if (type.equals("table"))
+      ref = keyString.substring(0, keyString.indexOf("__")).replaceAll("[(,)]", "");
+    if (type.equals("alias"))
+      ref = keyString.substring(0, keyString.lastIndexOf(".")).replaceAll("[(,)]", "");
+    return ref;
   }
 
   /*
@@ -580,13 +708,16 @@ public class ColumnarSQLRewriter implements QueryRewriter {
    */
   public void reset() {
     factInLineQuery.setLength(0);
-    factKeys.setLength(0);
+    factKeys.clear();
     aggColumn.clear();
     allSubQueries.setLength(0);
+    factFilterPush.setLength(0);
     rightFilter.clear();
     joinCondition.setLength(0);
     selectTree = fromTree = joinTree = whereTree = groupByTree = havingTree = orderByTree = null;
     selectAST = fromAST = joinAST = whereAST = groupByAST = havingAST = orderByAST = null;
+    mapAliases.clear();
+    joinList.clear();
     limit = null;
   }
 
@@ -614,6 +745,40 @@ public class ColumnarSQLRewriter implements QueryRewriter {
     return query;
   }
 
+  /**
+   * Replace alias in AST trees
+   *
+   * @throws HiveException
+   */
+
+  public void replaceAliasInAST() throws HiveException {
+    updateAliasFromAST(fromAST);
+    if (fromTree != null) {
+      replaceAlias(fromAST);
+      fromTree = HQLParser.getString(fromAST);
+    }
+    if (selectTree != null) {
+      replaceAlias(selectAST);
+      selectTree = HQLParser.getString(selectAST);
+    }
+    if (whereTree != null) {
+      replaceAlias(whereAST);
+      whereTree = HQLParser.getString(whereAST);
+    }
+    if (groupByTree != null) {
+      replaceAlias(groupByAST);
+      groupByTree = HQLParser.getString(groupByAST);
+    }
+    if (orderByTree != null) {
+      replaceAlias(orderByAST);
+      orderByTree = HQLParser.getString(orderByAST);
+    }
+    if (havingTree != null) {
+      replaceAlias(havingAST);
+      havingTree = HQLParser.getString(havingAST);
+    }
+  }
+
   /*
    * Construct the rewritten query using trees
    */
@@ -629,13 +794,17 @@ public class ColumnarSQLRewriter implements QueryRewriter {
   public void buildQuery() throws SemanticException, HiveException {
     analyzeInternal();
     replaceWithUnderlyingStorage(fromAST);
-    fromTree = HQLParser.getString(fromAST);
 
+    replaceAliasInAST();
     getFilterInJoinCond(fromAST);
     getAggregateColumns(selectAST);
-    getJoinCond(fromAST);
+    constructJoinChain();
     getAllFilters(whereAST);
     buildSubqueries(fromAST);
+    getAllFactKeys();
+    factFilterPushDown(whereAST);
+    factFilterPushDown(fromAST);
+
 
     // Get the limit clause
     String limit = getLimitClause(ast);
@@ -650,9 +819,9 @@ public class ColumnarSQLRewriter implements QueryRewriter {
       return;
     } else {
       String factNameAndAlias = getFactNameAlias(fromAST).trim();
-      factInLineQuery.append(" (select ").append(factKeys);
+      factInLineQuery.append(" (select ").append(factKeys.toString().replaceAll("\\[", "").replaceAll("\\]",""));
       if (!aggColumn.isEmpty()) {
-        factInLineQuery.append(aggColumn.toString().replace("[", "").replace("]", ""));
+        factInLineQuery.append(",").append(aggColumn.toString().replace("[", "").replace("]", ""));
       }
       if (factInLineQuery.toString().substring(factInLineQuery.toString().length() - 1).equals(",")) {
         factInLineQuery.setLength(factInLineQuery.length() - 1);
@@ -660,11 +829,14 @@ public class ColumnarSQLRewriter implements QueryRewriter {
       factInLineQuery.append(" from ").append(factNameAndAlias);
       if (allSubQueries != null) {
         factInLineQuery.append(" where ");
+        if (factFilterPush != null ) {
+          factInLineQuery.append(factFilterPush);
+        }
         factInLineQuery.append(allSubQueries.toString().substring(0, allSubQueries.lastIndexOf("and")));
       }
       if (!aggColumn.isEmpty()) {
         factInLineQuery.append(" group by ");
-        factInLineQuery.append(factKeys.toString().substring(0, factKeys.toString().lastIndexOf(",")));
+        factInLineQuery.append(factKeys.toString().replaceAll("\\[", "").replaceAll("\\]",""));
       }
       factInLineQuery.append(")");
     }
@@ -684,9 +856,8 @@ public class ColumnarSQLRewriter implements QueryRewriter {
     }
     //for subquery with count function should be replaced with sum in outer query
     if (selectTree.toLowerCase().matches("(.*)count\\((.*)")) {
-      System.out.println(selectTree);
       selectTree = selectTree.replaceAll("count\\(", "sum\\(");
-    }  
+    }
     // construct query with fact sub query
     constructQuery(selectTree, fromTree, whereTree, groupByTree, havingTree, orderByTree, limit, joinTree);
 
@@ -722,6 +893,52 @@ public class ColumnarSQLRewriter implements QueryRewriter {
     for (int i = 0; i < from.getChildCount(); i++) {
       ASTNode child = (ASTNode) from.getChild(i);
       getAllTablesfromFromAST(child, fromTables);
+    }
+  }
+
+  /**
+   * Update alias and map old alias with new one
+   *
+   * @param from
+   */
+  private void updateAliasFromAST(ASTNode from) {
+
+    String newAlias = "";
+    String table = "";
+    String dbAndTable = "";
+    if (TOK_TABREF == from.getToken().getType()) {
+      ASTNode tabName = (ASTNode) from.getChild(0);
+      if (tabName.getChildCount() == 2) {
+        dbAndTable = tabName.getChild(0).getText() + "_" + tabName.getChild(1).getText();
+        table = tabName.getChild(1).getText();
+      } else {
+        table = tabName.getChild(0).getText();
+      }
+      if (from.getChildCount() > 1) {
+        ASTNode alias = (ASTNode) from.getChild(1);
+        newAlias = dbAndTable + "_" + from.getChild(1).getText();
+        mapAliases.put(alias.getText(), table + "__" + newAlias);
+        alias.getToken().setText(table + "__" + newAlias);
+      }
+    }
+    for (int i = 0; i < from.getChildCount(); i++) {
+      updateAliasFromAST((ASTNode) from.getChild(i));
+
+    }
+  }
+
+  /**
+   * Update alias in all AST trees
+   *
+   * @param tree
+   */
+  private void replaceAlias(ASTNode tree) {
+    if (TOK_TABLE_OR_COL == tree.getToken().getType()) {
+      ASTNode alias = (ASTNode) tree.getChild(0);
+      alias.getToken().setText(mapAliases.get(tree.getChild(0).toString()));
+    }
+    for (int i = 0; i < tree.getChildCount(); i++) {
+      replaceAlias((ASTNode) tree.getChild(i));
     }
   }
 

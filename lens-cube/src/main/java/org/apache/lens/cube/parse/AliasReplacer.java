@@ -23,6 +23,7 @@ import static org.apache.hadoop.hive.ql.parse.HiveParser.TOK_SELEXPR;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,6 +42,7 @@ import org.apache.lens.cube.metadata.AbstractCubeTable;
 import org.apache.lens.cube.metadata.CubeInterface;
 import org.apache.lens.cube.metadata.DerivedCube;
 import org.apache.lens.cube.metadata.Dimension;
+import org.apache.lens.cube.metadata.ReferencedDimAtrribute;
 
 /**
  * Finds queried column to table alias. Finds queried dim attributes and queried
@@ -83,29 +85,24 @@ class AliasReplacer implements ContextRewriter {
       return;
     }
 
-    ASTNode selectAST = cubeql.getSelectAST();
-    replaceAliases(selectAST, 0, colToTableAlias);
+    replaceAliases(cubeql.getSelectAST(), 0, colToTableAlias);
 
-    ASTNode havingAST = cubeql.getHavingAST();
-    replaceAliases(havingAST, 0, colToTableAlias);
+    replaceAliases(cubeql.getHavingAST(), 0, colToTableAlias);
 
-    ASTNode orderByAST = cubeql.getOrderByAST();
-    replaceAliases(orderByAST, 0, colToTableAlias);
+    replaceAliases(cubeql.getOrderByAST(), 0, colToTableAlias);
 
-    ASTNode groupByAST = cubeql.getGroupByAST();
-    replaceAliases(groupByAST, 0, colToTableAlias);
+    replaceAliases(cubeql.getGroupByAST(), 0, colToTableAlias);
 
-    ASTNode whereAST = cubeql.getWhereAST();
-    replaceAliases(whereAST, 0, colToTableAlias);
+    replaceAliases(cubeql.getWhereAST(), 0, colToTableAlias);
 
-    ASTNode joinAST = cubeql.getJoinTree();
-    replaceAliases(joinAST, 0, colToTableAlias);
+    replaceAliases(cubeql.getJoinTree(), 0, colToTableAlias);
+
 
     // Update the aggregate expression set
-    AggregateResolver.updateAggregates(selectAST, cubeql);
-    AggregateResolver.updateAggregates(havingAST, cubeql);
+    AggregateResolver.updateAggregates(cubeql.getSelectAST(), cubeql);
+    AggregateResolver.updateAggregates(cubeql.getHavingAST(), cubeql);
     // Update alias map as well
-    updateAliasMap(selectAST, cubeql);
+    updateAliasMap(cubeql.getSelectAST(), cubeql);
 
   }
 
@@ -134,6 +131,15 @@ class AliasReplacer implements ContextRewriter {
           dcubes = cubeql.getMetastoreClient().getAllDerivedQueryableCubes(cube);
         } catch (HiveException e) {
           throw new SemanticException(e);
+        }
+        // remove chained ref columns from field valdation
+        Iterator<String> iter = queriedDimAttrs.iterator();
+        while (iter.hasNext()) {
+          String attr = iter.next();
+          if (cube.getDimAttributeByName(attr) instanceof ReferencedDimAtrribute
+              && ((ReferencedDimAtrribute)cube.getDimAttributeByName(attr)).isChainedColumn()) {
+            iter.remove();
+          }
         }
         // do validation
         // Find atleast one derived cube which contains all the dimensions
