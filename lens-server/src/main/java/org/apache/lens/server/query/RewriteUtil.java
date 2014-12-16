@@ -229,7 +229,7 @@ public class RewriteUtil {
    */
   public static Map<LensDriver, String> rewriteToHQL(AbstractQueryContext ctx) throws LensException {
     try {
-      String replacedQuery = getReplacedQuery(ctx.getUserQuery());
+      String replacedQuery = getReplacedQuery(ctx.getRewrittenQuery());
       String lowerCaseQuery = replacedQuery.toLowerCase();
       Map<LensDriver, String> driverQueries = new HashMap<LensDriver, String>();
       StringBuilder rewriteFailure = new StringBuilder();
