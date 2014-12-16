@@ -128,14 +128,20 @@ public class TestHiveDriver {
 
   protected QueryContext createContext(final String query, Configuration conf) throws LensException {
     QueryContext context = new QueryContext(query, "testuser", conf, drivers);
-    context.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }} );
+    context.getDriverContext().setDriverConf(new ArrayList<LensDriver>() {{
+      add(driver);
+    }}, conf);
     context.setSelectedDriver(driver);
     context.setLensSessionIdentifier(sessionid);
     return context;
   }
 
-  protected QueryContext createContext(PreparedQueryContext query, Configuration conf) {
+  protected QueryContext createContext(PreparedQueryContext query, Configuration conf) throws LensException {
     QueryContext context = new QueryContext(query, "testuser", conf);
+    context.getDriverContext().setDriverConf(
+      new ArrayList<LensDriver>() {{
+        add(driver);
+      }}, conf);
     context.setLensSessionIdentifier(sessionid);
     return context;
   }
@@ -659,7 +665,11 @@ public class TestHiveDriver {
     Assert.assertEquals(0, driver.getHiveHandleSize());
 
     // test execute prepare
-    PreparedQueryContext pctx = new PreparedQueryContext("SELECT ID FROM test_explain", null, conf, drivers);
+    final String query = "SELECT ID FROM test_explain";
+    PreparedQueryContext pctx = new PreparedQueryContext(query, null, conf, drivers);
+    pctx.getDriverContext().setDriverConf( new ArrayList<LensDriver>() {{
+      add(driver);
+    }}, conf);
     pctx.setSelectedDriver(driver);
 
     SessionState.setCurrentSessionState(ss);
@@ -761,8 +771,11 @@ public class TestHiveDriver {
     createTestTable("explain_test_1");
     conf.setBoolean(LensConfConstants.QUERY_PERSISTENT_RESULT_INDRIVER, true);
     SessionState.setCurrentSessionState(ss);
-    String query2 = "SELECT DISTINCT ID FROM explain_test_1";
+    final String query2 = "SELECT DISTINCT ID FROM explain_test_1";
     PreparedQueryContext pctx = new PreparedQueryContext(query2, null, conf, drivers);
+    pctx.getDriverContext().setDriverConf( new ArrayList<LensDriver>() {{
+      add(driver);
+    }}, conf);
     pctx.setSelectedDriver(driver);
     DriverQueryPlan plan2 = driver.explainAndPrepare(pctx);
     // assertNotNull(plan2.getResultDestination());

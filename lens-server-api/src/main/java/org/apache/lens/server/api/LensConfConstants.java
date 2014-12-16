@@ -445,7 +445,6 @@ public final class LensConfConstants {
   }
 
   /**
-<<<<<<< HEAD
     * Gets the Rewriter impl conf key.
     *
     * @param rewriterName

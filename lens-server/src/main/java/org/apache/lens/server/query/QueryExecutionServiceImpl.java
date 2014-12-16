@@ -963,7 +963,7 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
    * @throws LensException the lens exception
    */
   private void rewriteAndSelect(AbstractQueryContext ctx) throws LensException {
-    ctx.getDriverContext().setDriverQueriesAndPlans(doRewrite(ctx));
+    doRewrite(ctx);
 
     // 2. select driver to run the query
     LensDriver driver = driverSelector.select(ctx, conf);
@@ -1784,7 +1784,7 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
       ExplainQueryContext explainQueryContext = new ExplainQueryContext(query, lensConf, qconf, drivers.values());
 
       accept(query, qconf, SubmitOp.EXPLAIN);
-      explainQueryContext.getDriverContext().setDriverQueriesAndPlans(doRewrite(explainQueryContext));
+      doRewrite(explainQueryContext);
       // select driver to run the query
       explainQueryContext.setSelectedDriver(driverSelector.select(explainQueryContext, qconf));
       return explainQueryContext.getSelectedDriverQueryPlan().toQueryPlan();
@@ -1907,8 +1907,9 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
         QueryContext ctx = (QueryContext) in.readObject();
 
         //Create Driver Selector Context with driver conf for now and reset it in start()
-        DriverSelectorQueryContext driverCtx = new DriverSelectorQueryContext(ctx.getDriverQuery(), new Configuration(),
+        DriverSelectorQueryContext driverCtx = new DriverSelectorQueryContext(ctx.getDriverQuery(),
                                                                               drivers.values());
+
         ctx.setDriverContext(driverCtx);
         boolean driverAvailable = in.readBoolean();
         if (driverAvailable) {
@@ -2138,16 +2139,15 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
     }
   }
 
-  private Map<LensDriver, String> doRewrite(AbstractQueryContext ctx) throws LensException {
+  private void doRewrite(AbstractQueryContext ctx) throws LensException {
     // 1. First rewrite phase - Invoke rewriter to translate to CubeQL
     String rewrittenQuery = RewriteUtil.rewriteToCubeQL(ctx);
     ctx.setRewrittenQuery(rewrittenQuery);
-    //Merge conf again since the rewriter could have changed conf
-    for(LensDriver driver : drivers.values()) {
-      ctx.getDriverContext().setDriverConf(driver, ctx.getConf(), true);
-    }
+    //Merge query and driver conf , applying changes in conf from rewriters
+    ctx.getDriverContext().setDriverConf(drivers.values(), ctx.getConf());
 
     // 2. Rewrite CubeQL to HQL
-    return RewriteUtil.rewriteToHQL(ctx);
+    final Map<LensDriver, String> rewrittenDriverQueries = RewriteUtil.rewriteToHQL(ctx);
+    ctx.getDriverContext().setDriverQueriesAndPlans(rewrittenDriverQueries);
   }
 }

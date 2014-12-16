@@ -19,9 +19,11 @@
 package org.apache.lens.server.query;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.ql.Context;
 import org.apache.hadoop.hive.ql.parse.ASTNode;
 import org.apache.hadoop.hive.ql.parse.HiveParser;
@@ -32,12 +34,14 @@ import org.apache.lens.api.LensException;
 import org.apache.lens.cube.parse.CubeQueryContext;
 import org.apache.lens.cube.parse.CubeQueryRewriter;
 import org.apache.lens.cube.parse.HQLParser;
+import org.apache.lens.server.api.LensConfConstants;
 import org.apache.lens.server.api.driver.LensDriver;
 
 import static org.mockito.Matchers.any;
 
 import org.apache.lens.server.api.driver.MockDriver;
 import org.apache.lens.server.api.query.QueryContext;
+import org.apache.lens.server.api.query.QueryRewriter;
 import org.mockito.Matchers;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PowerMockIgnore;
@@ -389,5 +393,17 @@ public class TestRewriting {
     ctx = new QueryContext(q2, null, lensConf, conf, drivers);
     RewriteUtil.rewriteToHQL(ctx);
 
+  }
+
+  @Test
+  public void testUserQueryRewrite() throws ParseException, SemanticException, LensException {
+    HiveConf conf = new HiveConf();
+    conf.set(LensConfConstants.QUERY_REWRITERS, "test");
+    conf.set(LensConfConstants.getRewriterImplConfKey("test"), DummyQueryRewriter.class.getCanonicalName());
+
+    final Collection<QueryRewriter> queryRewriters = RewriteUtil.getQueryRewriter(conf, getObjectFactory().getClass()
+      .getClassLoader());
+    final String query = "cube select name from table";
+    Assert.assertEquals(queryRewriters.iterator().next().rewrite(query, conf), query);
   }
 }

@@ -140,12 +140,12 @@
 <property>
   <name>lens.server.query.rewriters</name>
   <value>test</value>
-  <description>Rewriter chain which rewrites given user query to CubeQL</description>
+  <description>User Specified Query Rewriter chain which rewrites given user query to CubeQL</description>
 </property>
 
 <property>
   <name>lens.server.query.rewriter.test.impl</name>
   <value>org.apache.lens.server.query.DummyQueryRewriter</value>
-  <description>Rewriter chain which rewrites given user query to CubeQL</description>
+  <description>Rewriter chain implementation which rewrites given user query to CubeQL</description>
 </property>
 </configuration>

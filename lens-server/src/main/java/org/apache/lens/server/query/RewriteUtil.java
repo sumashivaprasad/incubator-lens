@@ -350,7 +350,8 @@ public class RewriteUtil {
     for (QueryRewriter rewriter : queryRewriters) {
       rewrittenQuery = rewriter.rewrite(rewrittenQuery, ctx.getConf());
       if (StringUtils.isBlank(rewrittenQuery)) {
-        throw new LensException("Query rewrite failed for " + ctx.getUserQuery());
+        throw new LensException("Query rewrite failed for " + ctx.getUserQuery() + " with rewriter : " + rewriter
+          .getClass().getName());
       }
     }
     return rewrittenQuery;

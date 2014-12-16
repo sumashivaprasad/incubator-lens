@@ -103,7 +103,8 @@ public class TestJdbcDriver {
 
   private QueryContext createQueryContext(final String query) throws LensException {
     QueryContext context = new QueryContext(query, "SA", baseConf, drivers);
-    context.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }} );
+    context.getDriverContext().setDriverConf(drivers, baseConf);
+    context.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }});
     context.setSelectedDriver(driver);
     return context;
   }
@@ -290,6 +291,7 @@ public class TestJdbcDriver {
 
     final String query = "SELECT * from prepare_test";
     PreparedQueryContext pContext = new PreparedQueryContext(query, "SA", baseConf, drivers );
+    pContext.getDriverContext().setDriverConf(drivers, baseConf);
     pContext.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }});
     pContext.setSelectedDriver(driver);
     driver.prepare(pContext);

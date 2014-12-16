@@ -1370,6 +1370,7 @@ public class TestQueryService extends LensJerseyTest {
     QueryContext ctx = new QueryContext(query, null, queryConf, conf, queryService.getDrivers());
     Map<LensDriver, String> driverQueries = new HashMap<LensDriver, String>() {{ put(queryService.getDrivers
       ().iterator().next(), query); }};
+    ctx.getDriverContext().setDriverConf(driverQueries.keySet(), conf);
     ctx.getDriverContext().setDriverQueriesAndPlans(driverQueries);
 
     Assert.assertEquals(queryService.getSession(lensSessionId).getHiveConf().getClassLoader() ,  ctx.getConf()
