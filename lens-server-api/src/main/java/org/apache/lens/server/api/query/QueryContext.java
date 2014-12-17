@@ -270,6 +270,7 @@ public class QueryContext extends AbstractQueryContext implements Comparable<Que
     this.isDriverPersistent = conf.getBoolean(LensConfConstants.QUERY_PERSISTENT_RESULT_INDRIVER,
       LensConfConstants.DEFAULT_DRIVER_PERSISTENT_RESULT_SET);
     this.userQuery = userQuery;
+    this.rewrittenQuery = userQuery;
     this.submittedUser = user;
     if (selectedDriver != null) {
       this.setSelectedDriver(selectedDriver);
