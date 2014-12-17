@@ -80,6 +80,7 @@ public abstract class AbstractQueryContext implements Serializable {
   Collection<LensDriver> drivers) {
     driverContext = new DriverSelectorQueryContext(query, drivers);
     userQuery = query;
+    this.rewrittenQuery = query;
     this.lensConf = qconf;
     this.conf = conf;
     this.driverQuery = query;
