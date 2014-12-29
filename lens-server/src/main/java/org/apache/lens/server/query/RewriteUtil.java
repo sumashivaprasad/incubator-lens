@@ -345,7 +345,7 @@ public class RewriteUtil {
    * @throws LensException
    */
   public static String rewriteToCubeQL(AbstractQueryContext ctx) throws LensException {
-    Collection<QueryRewriter> queryRewriters = RewriteUtil.getQueryRewriter(ctx.getConf());
+    Collection<QueryRewriter> queryRewriters = getQueryRewriter(ctx.getConf());
     String rewrittenQuery = ctx.getUserQuery();
     for (QueryRewriter rewriter : queryRewriters) {
       rewrittenQuery = rewriter.rewrite(rewrittenQuery, ctx.getConf());

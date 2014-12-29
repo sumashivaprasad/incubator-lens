@@ -85,8 +85,11 @@ public class TestJdbcDriver {
     assertNotNull(driver);
     assertTrue(driver.configured);
 
-    drivers = new ArrayList<LensDriver>() {{
-      add(driver); }};
+    drivers = new ArrayList<LensDriver>() {
+      {
+        add(driver);
+      }
+    };
   }
 
   /**
@@ -99,7 +102,6 @@ public class TestJdbcDriver {
   public void close() throws Exception {
     driver.close();
   }
-
 
   private QueryContext createQueryContext(final String query) throws LensException {
     QueryContext context = new QueryContext(query, "SA", baseConf, drivers);
@@ -480,9 +482,16 @@ public class TestJdbcDriver {
     System.out.println("@@@ test_cancel:" + context.getQueryHandle());
     driver.executeAsync(context);
     QueryHandle handle = context.getQueryHandle();
-    driver.cancelQuery(handle);
+    boolean isCancelled = driver.cancelQuery(handle);
     driver.updateStatus(context);
-    assertEquals(context.getDriverStatus().getState(), DriverQueryState.CANCELED);
+
+    if (isCancelled) {
+      assertEquals(context.getDriverStatus().getState(), DriverQueryState.CANCELED);
+    } else {
+      // Query completed before cancelQuery call
+      assertEquals(context.getDriverStatus().getState(), DriverQueryState.SUCCESSFUL);
+    }
+
     assertTrue(context.getDriverStatus().getDriverStartTime() > 0);
     assertTrue(context.getDriverStatus().getDriverFinishTime() > 0);
     driver.closeQuery(handle);
