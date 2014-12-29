@@ -129,9 +129,7 @@ public class TestHiveDriver {
 
   protected QueryContext createContext(final String query, Configuration conf) throws LensException {
     QueryContext context = new QueryContext(query, "testuser", conf, drivers);
-    context.getDriverContext().setDriverConf(new ArrayList<LensDriver>() {{
-      add(driver);
-    }}, conf);
+    context.getDriverContext().setDriverConf(conf);
     context.setSelectedDriver(driver);
     context.setLensSessionIdentifier(sessionid);
     return context;
@@ -139,10 +137,7 @@ public class TestHiveDriver {
 
   protected QueryContext createContext(PreparedQueryContext query, Configuration conf) throws LensException {
     QueryContext context = new QueryContext(query, "testuser", conf);
-    context.getDriverContext().setDriverConf(
-      new ArrayList<LensDriver>() {{
-        add(driver);
-      }}, conf);
+    context.getDriverContext().setDriverConf(conf);
     context.setLensSessionIdentifier(sessionid);
     return context;
   }
@@ -668,9 +663,7 @@ public class TestHiveDriver {
     // test execute prepare
     final String query = "SELECT ID FROM test_explain";
     PreparedQueryContext pctx = new PreparedQueryContext(query, null, conf, drivers);
-    pctx.getDriverContext().setDriverConf( new ArrayList<LensDriver>() {{
-      add(driver);
-    }}, conf);
+    pctx.getDriverContext().setDriverConf(conf);
     pctx.setSelectedDriver(driver);
 
     SessionState.setCurrentSessionState(ss);
@@ -774,9 +767,7 @@ public class TestHiveDriver {
     SessionState.setCurrentSessionState(ss);
     final String query2 = "SELECT DISTINCT ID FROM explain_test_1";
     PreparedQueryContext pctx = new PreparedQueryContext(query2, null, conf, drivers);
-    pctx.getDriverContext().setDriverConf( new ArrayList<LensDriver>() {{
-      add(driver);
-    }}, conf);
+    pctx.getDriverContext().setDriverConf(conf);
     pctx.setSelectedDriver(driver);
     DriverQueryPlan plan2 = driver.explainAndPrepare(pctx);
     // assertNotNull(plan2.getResultDestination());

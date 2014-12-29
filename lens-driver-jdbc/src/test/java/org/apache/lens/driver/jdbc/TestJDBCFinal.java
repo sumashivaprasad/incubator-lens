@@ -189,7 +189,7 @@ public class TestJDBCFinal {
         + "group by fact.time_key,time_dim.day_of_week,time_dim.day " + "order by dollars_sold desc";
 
     QueryContext context = new QueryContext(query, "SA", baseConf, drivers);
-    context.getDriverContext().setDriverConf(drivers, baseConf);
+    context.getDriverContext().setDriverConf(baseConf);
     context.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }});
 
     context.setSelectedDriver(driver);
@@ -250,7 +250,7 @@ public class TestJDBCFinal {
         + "group by fact.time_key,time_dim.day_of_week,time_dim.day " + "order by dollars_sold  desc ";
 
     QueryContext context = new QueryContext(query, "SA", baseConf, drivers);
-    context.getDriverContext().setDriverConf(drivers, baseConf);
+    context.getDriverContext().setDriverConf(baseConf);
     context.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }});
     context.setSelectedDriver(driver);
     LensResultSet resultSet = driver.execute(context);

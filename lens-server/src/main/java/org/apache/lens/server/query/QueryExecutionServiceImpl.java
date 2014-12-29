@@ -2144,7 +2144,7 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
     String rewrittenQuery = RewriteUtil.rewriteToCubeQL(ctx);
     ctx.setRewrittenQuery(rewrittenQuery);
     //Merge query and driver conf , applying changes in conf from rewriters
-    ctx.getDriverContext().setDriverConf(drivers.values(), ctx.getConf());
+    ctx.getDriverContext().setDriverConf(ctx.getConf());
 
     // 2. Rewrite CubeQL to HQL
     final Map<LensDriver, String> rewrittenDriverQueries = RewriteUtil.rewriteToHQL(ctx);
