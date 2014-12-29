@@ -188,10 +188,7 @@ public class DriverSelectorQueryContext {
    * @param conf
    */
   public void setDriverConf(Configuration conf) {
-    for (LensDriver driver : driverQueryContextMap.keySet()) {
-      Configuration mergedConf = mergeConf(driver, conf);
-      driverQueryContextMap.get(driver).setDriverSpecificConf(mergedConf);
-    }
+    setDriverConf(driverQueryContextMap.keySet(), conf);
   }
 
   public void setSelectedDriverQuery(String driverQuery) {
