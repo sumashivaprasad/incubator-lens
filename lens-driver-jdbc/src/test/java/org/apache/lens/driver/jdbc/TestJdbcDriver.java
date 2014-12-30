@@ -292,7 +292,7 @@ public class TestJdbcDriver {
     insertData("prepare_test");
 
     final String query = "SELECT * from prepare_test";
-    PreparedQueryContext pContext = new PreparedQueryContext(query, "SA", baseConf, drivers );
+    PreparedQueryContext pContext = new PreparedQueryContext(query, "SA", baseConf, drivers);
     pContext.getDriverContext().setDriverConf(baseConf);
     pContext.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }});
     pContext.setSelectedDriver(driver);

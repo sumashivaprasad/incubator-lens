@@ -2139,14 +2139,23 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
     }
   }
 
+  /**
+   * Internal method to do rewrites from a given user query in 2 phases
+   *
+   * Phase1 : Rewrite User DSL to CubeQL using a configured set of rewriters
+   * Phase 2 : Rewrite from CubeQL to HQL.
+   *
+   * @param ctx the query context for which the query needs to be rewritten
+   * @throws LensException
+   */
   private void doRewrite(AbstractQueryContext ctx) throws LensException {
-    // 1. First rewrite phase - Invoke rewriter to translate to CubeQL
+    // Phase 1. First rewrite phase - Invoke rewriter to translate to CubeQL
     String rewrittenQuery = RewriteUtil.rewriteToCubeQL(ctx);
     ctx.setRewrittenQuery(rewrittenQuery);
     //Merge query and driver conf , applying changes in conf from rewriters
     ctx.getDriverContext().setDriverConf(ctx.getConf());
 
-    // 2. Rewrite CubeQL to HQL
+    // Phase 2. Rewrite CubeQL to HQL
     final Map<LensDriver, String> rewrittenDriverQueries = RewriteUtil.rewriteToHQL(ctx);
     ctx.getDriverContext().setDriverQueriesAndPlans(rewrittenDriverQueries);
   }

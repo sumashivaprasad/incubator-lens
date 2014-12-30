@@ -786,6 +786,6 @@ public final class LensConfConstants {
   public static final String SERVICE_PROVIDER_FACTORY = SERVER_PFX + "service.provider.factory";
 
   /** Pluggable Query Rewriters invoked in the first phase of rewrite to CubeQL. */
-  public static final String QUERY_REWRITERS = SERVER_PFX + "query.rewriters";
+  public static final String QUERY_PHASE1_REWRITERS = SERVER_PFX + "query.phase1.rewriters";
 
 }

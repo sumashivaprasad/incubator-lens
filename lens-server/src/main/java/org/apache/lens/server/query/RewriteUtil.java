@@ -37,6 +37,7 @@ import org.apache.hadoop.hive.ql.parse.SemanticException;
 import org.apache.lens.api.LensException;
 import org.apache.lens.cube.parse.CubeQueryRewriter;
 import org.apache.lens.cube.parse.HQLParser;
+import org.apache.lens.server.LensServerConf;
 import org.apache.lens.server.api.LensConfConstants;
 import org.apache.lens.server.api.driver.LensDriver;
 
@@ -308,7 +309,7 @@ public class RewriteUtil {
    * @return the rewriter chain
    *         empty list if no rewriters configured
    */
-  public static Collection<QueryRewriter> getQueryRewriter(Configuration conf) {
+  public static Collection<QueryRewriter> getQueryRewriter(Configuration conf) throws LensException {
      return getQueryRewriter(conf, Thread.currentThread().getContextClassLoader());
   }
 
@@ -322,15 +323,17 @@ public class RewriteUtil {
    * @return
    */
 
-  public static Collection<QueryRewriter> getQueryRewriter(Configuration conf, ClassLoader classLoader) {
-    String[] rewriterNames = conf.getStrings(LensConfConstants.QUERY_REWRITERS);
+  public static Collection<QueryRewriter> getQueryRewriter(Configuration conf, ClassLoader classLoader) throws LensException {
+    String[] rewriterNames = conf.getStrings(LensConfConstants.QUERY_PHASE1_REWRITERS);
     if(rewriterNames == null || rewriterNames.length == 0) {
-      return Collections.emptyList();
+      LOG.fatal("No query rewriters configured. Aborting");
+      throw new LensException("No query rewriters configured. Aborting");
     }
     List<QueryRewriter> rewriterInsts = new ArrayList<QueryRewriter>(rewriterNames.length);
     for (String rName : rewriterNames) {
       QueryRewriter rewriterInst = loadRewriterImpl(rName, conf, classLoader);
       if(rewriterInst != null) {
+        rewriterInst.init(LensServerConf.get());
         rewriterInsts.add(rewriterInst);
       }
     }
@@ -364,30 +367,27 @@ public class RewriteUtil {
    * @param classLoader
    * @return
    */
-  private static QueryRewriter loadRewriterImpl(String rewriterName, Configuration conf, ClassLoader classLoader) {
+  private static QueryRewriter loadRewriterImpl(String rewriterName, Configuration conf, ClassLoader classLoader) throws LensException {
+    String rewriterClassName = conf.get(LensConfConstants.getRewriterImplConfKey(rewriterName));
+    if (StringUtils.isBlank(rewriterClassName)) {
+      LOG.fatal("No implementation class configured for rewriter. Aborting");
+      throw new LensException("No implementation class configured for rewriter: " + rewriterName);
+    }
     try {
-      String rewriterClassName = conf.get(LensConfConstants.getRewriterImplConfKey(rewriterName));
-
-      if (StringUtils.isBlank(rewriterClassName)) {
-        LOG.warn("Invalid class configured for rewriter " + rewriterName);
-        return null;
-      }
-
       Class<?> cls = classLoader.loadClass(rewriterClassName);
-
       if (QueryRewriter.class.isAssignableFrom(cls)) {
         Class<? extends QueryRewriter> rewriterClass = (Class<? extends QueryRewriter>) cls;
         LOG.info("Adding " + rewriterName + " service with " + rewriterClass);
         Constructor<?> constructor = rewriterClass.getConstructor();
         return (QueryRewriter) constructor.newInstance();
       } else {
-        LOG.warn("Unsupported rewriter class " + rewriterClassName + " for rewriter " + rewriterName);
+        LOG.fatal("Unsupported rewriter class " + rewriterClassName + " for rewriter " + rewriterName);
+        throw new LensException("Unsupported rewriter class " + rewriterClassName + " for rewriter " + rewriterName);
       }
     } catch (Exception e) {
-      LOG.warn("Could not add rewriter:" + rewriterName, e);
-      throw new RuntimeException("Could not add rewriter:" + rewriterName, e);
+      LOG.fatal("Could not load rewriter: " + rewriterName, e);
+      throw new LensException("Could not load rewriter: " + rewriterName, e);
     }
-    return null;
   }
 }
 

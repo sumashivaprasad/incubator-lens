@@ -814,10 +814,8 @@ public class TestHiveDriver {
         }
       };
       AbstractQueryContext ctx = new MockQueryContext("driverQuery1", new LensConf(), conf,
-                                                      driverQuery1.keySet());
-      ctx.getDriverContext().setDriverQueriesAndPlans(driverQuery1);
+                                                      driverQuery1);
       ctx.setSelectedDriver(mockDriver);
-
       ((MockDriver.MockQueryPlan)ctx.getDriverContext().getDriverQueryPlan(mockDriver)).setPartitions
         (new HashMap<String,
           List<String>>

@@ -398,7 +398,7 @@ public class TestRewriting {
   @Test
   public void testUserQueryRewrite() throws ParseException, SemanticException, LensException {
     HiveConf conf = new HiveConf();
-    conf.set(LensConfConstants.QUERY_REWRITERS, "test");
+    conf.set(LensConfConstants.QUERY_PHASE1_REWRITERS, "test");
     conf.set(LensConfConstants.getRewriterImplConfKey("test"), DummyQueryRewriter.class.getCanonicalName());
 
     final Collection<QueryRewriter> queryRewriters = RewriteUtil.getQueryRewriter(conf, getObjectFactory().getClass()

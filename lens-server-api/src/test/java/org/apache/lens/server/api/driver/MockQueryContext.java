@@ -20,14 +20,15 @@ package org.apache.lens.server.api.driver;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.lens.api.LensConf;
+import org.apache.lens.api.LensException;
 import org.apache.lens.server.api.query.AbstractQueryContext;
-
-import java.util.Collection;
+import java.util.Map;
 
 public class MockQueryContext extends AbstractQueryContext {
 
   public MockQueryContext(final String query, final LensConf qconf,
-    final Configuration conf, final Collection<LensDriver> drivers) {
-    super(query, qconf, conf, drivers);
+    final Configuration conf, final Map<LensDriver, String> driverQueries) throws LensException {
+    super(query, qconf, conf, driverQueries.keySet());
+    getDriverContext().setDriverQueriesAndPlans(driverQueries);
   }
 }
