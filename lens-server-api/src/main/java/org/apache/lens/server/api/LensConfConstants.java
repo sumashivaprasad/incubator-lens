@@ -109,7 +109,7 @@ public final class LensConfConstants {
   /**
    *  The Constant REWRITER_IMPL_PFX.
    */
-  public static final String REWRITER_IMPL_PFX = SERVER_PFX + "query.rewriter.";
+  public static final String REWRITER_IMPL_PFX = SERVER_PFX + "query.phase1.rewriter.";
 
   /**
    *  The Constant REWRITER_IMPL_SFX.

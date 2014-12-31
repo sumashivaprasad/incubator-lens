@@ -580,7 +580,7 @@
     This is not supposed to be overridden by users.</description>
 </property>
 <property>
-    <name>lens.server.query.rewriters</name>
+    <name>lens.server.query.phase1.rewriters</name>
     <value>cube</value>
     <description>Rewriter Chain which is invoked in the first phase of query rewrites to translate the query to
       CubeQL(in case of CubeQL/HQL, it is a no-op)
@@ -600,7 +600,7 @@
     </description>
   </property>
   <property>
-    <name>lens.server.query.rewriter.cube.impl</name>
+    <name>lens.server.query.phase1.rewriter.cube.impl</name>
     <value>org.apache.lens.cube.parse.CubeQueryRewriter</value>
     <description>Rewriter Chain which is invoked in the first phase of query rewrites to translate the query to
       CubeQL(in case of CubeQL/HQL, it is a no-op)
