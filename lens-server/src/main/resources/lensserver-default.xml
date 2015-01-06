@@ -581,7 +581,7 @@
 </property>
 <property>
     <name>lens.server.query.phase1.rewriters</name>
-    <value>cube</value>
+    <value></value>
     <description>Rewriter Chain which is invoked in the first phase of query rewrites to translate the query to
       CubeQL(in case of CubeQL/HQL, it is a no-op)
 
@@ -597,13 +597,6 @@
       </property
       -->
       --
-    </description>
-  </property>
-  <property>
-    <name>lens.server.query.phase1.rewriter.cube.impl</name>
-    <value>org.apache.lens.cube.parse.CubeQueryRewriter</value>
-    <description>Rewriter Chain which is invoked in the first phase of query rewrites to translate the query to
-      CubeQL(in case of CubeQL/HQL, it is a no-op)
     </description>
   </property>
 

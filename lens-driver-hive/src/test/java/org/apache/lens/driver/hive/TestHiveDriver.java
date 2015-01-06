@@ -127,7 +127,7 @@ public class TestHiveDriver {
     SessionState.get().setCurrentDatabase(DATA_BASE);
   }
 
-  protected QueryContext createContext(final String query, Configuration conf) throws LensException {
+  protected QueryContext createContext(final String query, Configuration conf) {
     QueryContext context = new QueryContext(query, "testuser", conf, drivers);
     context.getDriverContext().setDriverConf(conf);
     context.setSelectedDriver(driver);
@@ -135,7 +135,7 @@ public class TestHiveDriver {
     return context;
   }
 
-  protected QueryContext createContext(PreparedQueryContext query, Configuration conf) throws LensException {
+  protected QueryContext createContext(PreparedQueryContext query, Configuration conf) {
     QueryContext context = new QueryContext(query, "testuser", conf);
     context.getDriverContext().setDriverConf(conf);
     context.setLensSessionIdentifier(sessionid);

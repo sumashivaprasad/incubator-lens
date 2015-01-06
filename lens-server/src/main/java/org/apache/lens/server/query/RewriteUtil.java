@@ -326,8 +326,7 @@ public class RewriteUtil {
   public static Collection<QueryRewriter> getQueryRewriter(Configuration conf, ClassLoader classLoader) throws LensException {
     String[] rewriterNames = conf.getStrings(LensConfConstants.QUERY_PHASE1_REWRITERS);
     if(rewriterNames == null || rewriterNames.length == 0) {
-      LOG.fatal("No query rewriters configured. Aborting");
-      throw new LensException("No query rewriters configured. Aborting");
+      return Collections.emptyList();
     }
     List<QueryRewriter> rewriterInsts = new ArrayList<QueryRewriter>(rewriterNames.length);
     for (String rName : rewriterNames) {
