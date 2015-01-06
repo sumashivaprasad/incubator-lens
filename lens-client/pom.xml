@@ -44,10 +44,6 @@
       <artifactId>commons-logging</artifactId>
     </dependency>
     <dependency>
-      <groupId>commons-lang</groupId>
-      <artifactId>commons-lang</artifactId>
-    </dependency>
-    <dependency>
       <groupId>org.apache.lens</groupId>
       <artifactId>lens-server</artifactId>
       <version>${project.version}</version>
