@@ -34,9 +34,6 @@ import org.apache.hive.service.cli.ColumnDescriptor;
 import org.apache.lens.api.LensException;
 import org.apache.lens.api.query.QueryHandle;
 import org.apache.lens.api.query.ResultRow;
-import org.apache.lens.driver.jdbc.JDBCDriver;
-import org.apache.lens.driver.jdbc.JDBCDriverConfConstants;
-import org.apache.lens.driver.jdbc.JDBCResultSet;
 import org.apache.lens.server.api.driver.LensDriver;
 import org.apache.lens.server.api.driver.LensResultSet;
 import org.apache.lens.server.api.driver.LensResultSetMetadata;
@@ -49,6 +46,7 @@ import org.testng.Assert;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
+import org.apache.lens.server.api.driver.;
 
 import static org.testng.Assert.*;
 
@@ -104,14 +102,14 @@ public class TestJdbcDriver {
   }
 
   private QueryContext createQueryContext(final String query) throws LensException {
-    QueryContext context = new QueryContext(query, "SA", baseConf, drivers);
-    context.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {
-      {
-        put(driver, query);
-      }
-    });
-    context.setSelectedDriver(driver);
-    return context;
+//    QueryContext context = new QueryContext(query, "SA", baseConf, drivers);
+//    context.getDriverContext().setDriverConf(baseConf);
+//    context.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }});
+//    context.setSelectedDriver(driver);
+//    return context;
+
+    QueryContext ctx = new MockQueryContext.Builder().query(query).lensConf(lensConf).conf
+      (conf).driverQueries(driverQueries).build();
   }
 
   /**
@@ -296,11 +294,8 @@ public class TestJdbcDriver {
 
     final String query = "SELECT * from prepare_test";
     PreparedQueryContext pContext = new PreparedQueryContext(query, "SA", baseConf, drivers);
-    pContext.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {
-      {
-        put(driver, query);
-      }
-    });
+    pContext.getDriverContext().setDriverConf(baseConf);
+    pContext.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }});
     pContext.setSelectedDriver(driver);
     driver.prepare(pContext);
   }

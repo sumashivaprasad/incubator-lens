@@ -138,7 +138,6 @@
       <groupId>org.testng</groupId>
       <artifactId>testng</artifactId>
     </dependency>
-
     <dependency>
       <groupId>com.codahale.metrics</groupId>
       <artifactId>metrics-core</artifactId>
@@ -170,6 +169,14 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-all</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.powermock</groupId>
+      <artifactId>powermock-module-testng</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.powermock</groupId>
+      <artifactId>powermock-api-mockito</artifactId>
     </dependency>
     <dependency>
       <groupId>org.subethamail</groupId>

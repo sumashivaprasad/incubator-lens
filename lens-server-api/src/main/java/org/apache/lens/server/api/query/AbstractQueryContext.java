@@ -44,6 +44,13 @@ public abstract class AbstractQueryContext implements Serializable {
   protected String userQuery;
 
   /**
+   * The rewritten query.
+   */
+  @Getter
+  @Setter
+  protected String phase1RewrittenQuery;
+
+  /**
    * The merged Query conf.
    */
   @Getter
@@ -71,8 +78,9 @@ public abstract class AbstractQueryContext implements Serializable {
 
   protected AbstractQueryContext(final String query, final LensConf qconf, final Configuration conf, final
   Collection<LensDriver> drivers) {
-    driverContext = new DriverSelectorQueryContext(query, conf, drivers);
+    driverContext = new DriverSelectorQueryContext(query, drivers);
     userQuery = query;
+    this.phase1RewrittenQuery = query;
     this.lensConf = qconf;
     this.conf = conf;
     this.driverQuery = query;

@@ -107,6 +107,16 @@ public final class LensConfConstants {
   public static final String WS_FILTER_IMPL_SFX = ".ws.filter.impl";
 
   /**
+   *  The Constant REWRITER_IMPL_PFX.
+   */
+  public static final String REWRITER_IMPL_PFX = SERVER_PFX + "query.phase1.rewriter.";
+
+  /**
+   *  The Constant REWRITER_IMPL_SFX.
+   */
+  public static final String REWRITER_IMPL_SFX = ".impl";
+
+  /**
    * The Constant QUERY_STATE_LOGGER_ENABLED.
    */
   public static final String QUERY_STATE_LOGGER_ENABLED = SERVER_PFX + "query.state.logger.enabled";
@@ -432,6 +442,17 @@ public final class LensConfConstants {
    */
   public static String getWSFilterImplConfKey(String filterName) {
     return SERVER_PFX + filterName + WS_FILTER_IMPL_SFX;
+  }
+
+  /**
+    * Gets the Rewriter impl conf key.
+    *
+    * @param rewriterName
+    *          the rewriter name
+    * @return the Rewriter impl conf key
+    */
+  public static String getRewriterImplConfKey(final String rewriterName) {
+    return REWRITER_IMPL_PFX + rewriterName + REWRITER_IMPL_SFX;
   }
 
   /**
@@ -763,4 +784,8 @@ public final class LensConfConstants {
    * The Constant SERVICE_PROVIDER_FACTORY.
    */
   public static final String SERVICE_PROVIDER_FACTORY = SERVER_PFX + "service.provider.factory";
+
+  /** Pluggable Query Rewriters invoked in the first phase of rewrite to CubeQL. */
+  public static final String QUERY_PHASE1_REWRITERS = SERVER_PFX + "query.phase1.rewriters";
+
 }
