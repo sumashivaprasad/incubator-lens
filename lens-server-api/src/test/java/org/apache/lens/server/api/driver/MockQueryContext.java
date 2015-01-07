@@ -78,8 +78,7 @@ public class MockQueryContext extends QueryContext {
       Preconditions.checkNotNull(qconf, "LensConf should not be null");
       Preconditions.checkNotNull(conf, "Configuration should not be null");
       Preconditions.checkNotNull(driverQueries, "Driver Queries should not be null");
-      MockQueryContext ctx = new MockQueryContext.Builder().query(query).user(user).lensConf(qconf).conf
-        (conf).driverQueries(driverQueries).build();
+      MockQueryContext ctx = new MockQueryContext(query, user, qconf, conf, driverQueries);
       if(selectedDriver != null) {
         ctx.setSelectedDriver(selectedDriver);
       }
