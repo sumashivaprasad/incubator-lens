@@ -25,11 +25,12 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.lens.api.LensException;
 import org.apache.lens.server.api.query.QueryRewriter;
 
-public class DummyQueryRewriter implements QueryRewriter {
+public class DummyPhase1QueryRewriter2 implements QueryRewriter {
 
   @Override
   public String rewrite(final String query, final Configuration conf) throws LensException {
-    return query;
+    conf.set("phase1.rewriter.conf2", "value");
+    return "rewriter2: " + query;
   }
 
   @Override

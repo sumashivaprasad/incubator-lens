@@ -167,28 +167,15 @@ public class DriverSelectorQueryContext {
     return driverQueryContextMap.get(getSelectedDriver()).getQuery();
   }
 
-  public void setDriverConf(LensDriver driver, Configuration conf) {
-    driverQueryContextMap.get(driver).setDriverSpecificConf(conf);
-  }
-
-  /**
-   * Set driver specific query conf, if required merge driver conf with query conf again
-   * @param drivers
-   * @param conf
-   */
-  public void setDriverConf(Collection<LensDriver> drivers, Configuration conf) {
-    for (LensDriver driver : drivers) {
-      Configuration mergedConf = mergeConf(driver, conf);
-      driverQueryContextMap.get(driver).setDriverSpecificConf(mergedConf);
-    }
-  }
-
   /**
    * Set driver specific query conf, if required merge driver conf with query conf again
    * @param conf
    */
   public void setDriverConf(Configuration conf) {
-    setDriverConf(driverQueryContextMap.keySet(), conf);
+    for (LensDriver driver : driverQueryContextMap.keySet()) {
+      Configuration mergedConf = mergeConf(driver, conf);
+      driverQueryContextMap.get(driver).setDriverSpecificConf(mergedConf);
+    }
   }
 
   public void setSelectedDriverQuery(String driverQuery) {

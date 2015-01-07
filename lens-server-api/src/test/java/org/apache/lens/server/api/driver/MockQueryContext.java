@@ -21,14 +21,85 @@ package org.apache.lens.server.api.driver;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.lens.api.LensConf;
 import org.apache.lens.api.LensException;
-import org.apache.lens.server.api.query.AbstractQueryContext;
+import org.apache.lens.server.api.query.QueryContext;
+import parquet.Preconditions;
+
 import java.util.Map;
 
-public class MockQueryContext extends AbstractQueryContext {
+public class MockQueryContext extends QueryContext {
 
-  public MockQueryContext(final String query, final LensConf qconf,
-    final Configuration conf, final Map<LensDriver, String> driverQueries) throws LensException {
-    super(query, qconf, conf, driverQueries.keySet());
+  public static class Builder {
+
+    private String query;
+    private String user;
+    private LensConf qconf;
+    private Configuration conf;
+    private Map<LensDriver, String> driverQueries;
+    private String lensSessionId;
+    private LensDriver selectedDriver;
+
+    public Builder query(String query) {
+      this.query = query;
+      return this;
+    }
+
+    public Builder user(String user) {
+      this.user = user;
+      return this;
+    }
+
+    public Builder lensConf(LensConf qconf) {
+      this.qconf = qconf;
+      return this;
+    }
+
+    public Builder conf(Configuration qconf) {
+      this.conf = qconf;
+      return this;
+    }
+
+    public Builder driverQueries(Map<LensDriver, String> driverQueries) {
+      this.driverQueries = driverQueries;
+      return this;
+    }
+
+    public Builder session(String sessionId) {
+      this.lensSessionId = sessionId;
+      return this;
+    }
+
+    public Builder selectedDriver(LensDriver selectedDriver) {
+      this.selectedDriver = selectedDriver;
+      return this;
+    }
+
+    public MockQueryContext build() throws LensException {
+      Preconditions.checkNotNull(query, "Query should not be null");
+      Preconditions.checkNotNull(qconf, "LensConf should not be null");
+      Preconditions.checkNotNull(conf, "Configuration should not be null");
+      Preconditions.checkNotNull(driverQueries, "Driver Queries should not be null");
+      MockQueryContext ctx = new MockQueryContext.Builder().query(query).user(user).lensConf(qconf).conf
+        (conf).driverQueries(driverQueries).build();
+      if(selectedDriver != null) {
+        ctx.setSelectedDriver(selectedDriver);
+      }
+      if(lensSessionId != null) {
+        ctx.setLensSessionIdentifier(lensSessionId);
+      }
+      return ctx;
+    }
+
+  }
+
+  protected MockQueryContext(final String query, final String user, final LensConf qconf,
+    final Configuration conf, final Map<LensDriver, String> driverQueries) throws
+    LensException {
+    super(query, user, qconf, conf, driverQueries.keySet());
+    getDriverContext().setDriverConf(conf);
     getDriverContext().setDriverQueriesAndPlans(driverQueries);
+  }
+
+  public Builder builder() {
+    return new Builder();
   }
 }

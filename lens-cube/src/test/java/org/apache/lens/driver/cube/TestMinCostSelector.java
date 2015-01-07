@@ -19,7 +19,6 @@
 package org.apache.lens.driver.cube;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,8 +37,8 @@ public class TestMinCostSelector {
 
   private MockQueryContext createMockContext(String query, Configuration conf, LensConf lensConf,
                                              Map<LensDriver, String> driverQueries) throws LensException {
-    MockQueryContext ctx = new MockQueryContext(query, lensConf, conf,  driverQueries);
-    ctx.getDriverContext().setDriverQueriesAndPlans(driverQueries);
+    MockQueryContext ctx = new MockQueryContext.Builder().query(query).lensConf(lensConf).conf
+      (conf).driverQueries(driverQueries).build();
     return ctx;
   }
 
@@ -82,7 +81,6 @@ public class TestMinCostSelector {
     ctx = createMockContext(query, conf, qconf, driverQueries);
     selected = selector.select(ctx, conf);
     Assert.assertEquals(d2, selected);
-
 
     drivers.add(fd2);
     driverQueries.put(fd2, query);

@@ -61,7 +61,7 @@ import org.testng.annotations.ObjectFactory;
 @PrepareForTest(RewriteUtil.class)
 @PowerMockIgnore({ "org.apache.log4j.*", "javax.management.*", "javax.xml.*",
     "com.sun.org.apache.xerces.internal.jaxp.*", "ch.qos.logback.*", "org.slf4j.*", "org.w3c.dom*" })
-public class TestRewriting {
+public class TestCubeQLParsing {
 
   /**
    * We need a special {@link IObjectFactory}.
@@ -393,17 +393,5 @@ public class TestRewriting {
     ctx = new QueryContext(q2, null, lensConf, conf, drivers);
     RewriteUtil.rewriteToHQL(ctx);
 
-  }
-
-  @Test
-  public void testUserQueryRewrite() throws ParseException, SemanticException, LensException {
-    HiveConf conf = new HiveConf();
-    conf.set(LensConfConstants.QUERY_PHASE1_REWRITERS, "test");
-    conf.set(LensConfConstants.getRewriterImplConfKey("test"), DummyQueryRewriter.class.getCanonicalName());
-
-    final Collection<QueryRewriter> queryRewriters = RewriteUtil.getQueryRewriter(conf, getObjectFactory().getClass()
-      .getClassLoader());
-    final String query = "cube select name from table";
-    Assert.assertEquals(queryRewriters.iterator().next().rewrite(query, conf), query);
   }
 }
