@@ -44,6 +44,7 @@ import org.apache.hadoop.hive.ql.HiveDriverRunHook;
 import org.apache.hadoop.hive.ql.HiveDriverRunHookContext;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.lens.driver.hive.TestHiveDriver;
+import org.apache.lens.server.api.driver.MockQueryContext;
 import org.apache.lens.server.api.query.QueryContext;
 import org.glassfish.jersey.client.ClientConfig;
 import org.glassfish.jersey.media.multipart.FormDataBodyPart;
@@ -1367,11 +1368,10 @@ public class TestQueryService extends LensJerseyTest {
     Assert.assertEquals(queryService.getHiveConf().get("hive.server2.query.log.dir"), "target/query-logs");
 
     final String query = "test query";
-    QueryContext ctx = new QueryContext(query, null, queryConf, conf, queryService.getDrivers());
-    Map<LensDriver, String> driverQueries = new HashMap<LensDriver, String>() {{ put(queryService.getDrivers
-      ().iterator().next(), query); }};
-    ctx.getDriverContext().setDriverConf(conf);
-    ctx.getDriverContext().setDriverQueriesAndPlans(driverQueries);
+
+    QueryContext ctx = new MockQueryContext.Builder().query(query).lensConf(queryConf)
+            .conf(conf).driverQueries(new HashMap<LensDriver, String>() {{ put(queryService.getDrivers().iterator().next(), query); }})
+            .build();
 
     Assert.assertEquals(queryService.getSession(lensSessionId).getHiveConf().getClassLoader() ,  ctx.getConf()
       .getClassLoader());

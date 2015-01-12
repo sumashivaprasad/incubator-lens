@@ -30,6 +30,7 @@ import org.apache.lens.server.api.LensConfConstants;
 import org.apache.lens.server.api.driver.LensDriver;
 import org.apache.lens.server.api.driver.LensResultSetMetadata;
 import org.apache.lens.server.api.driver.MockDriver;
+import org.apache.lens.server.api.driver.MockQueryContext;
 import org.apache.lens.server.api.query.QueryContext;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
@@ -39,6 +40,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -222,13 +224,16 @@ public abstract class TestAbstractFileFormatter {
     } catch (LensException e) {
       Assert.fail(e.getMessage());
     }
-    QueryContext ctx = new QueryContext("test writer query", "testuser", conf, new ArrayList<LensDriver>() {
-      {
-        add(mockDriver);
+    final String testQuery = "test writer query";
+      QueryContext ctx = null;
+      try {
+        ctx = new MockQueryContext.Builder().query(testQuery).user("testuser")
+                .conf(conf).driverQueries(new HashMap<LensDriver, String>() {{ put(mockDriver, testQuery); }})
+                .selectedDriver(mockDriver).build();
+      } catch (LensException e1) {
+        Assert.fail("Failed to create MockQueryContext ", e1);
       }
-    });
 
-    ctx.setSelectedDriver(mockDriver);
     formatter = createFormatter();
 
     formatter.init(ctx, columnNames);

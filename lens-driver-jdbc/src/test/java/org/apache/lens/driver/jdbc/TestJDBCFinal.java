@@ -38,10 +38,7 @@ import org.apache.lens.driver.jdbc.ColumnarSQLRewriter;
 import org.apache.lens.driver.jdbc.JDBCDriver;
 import org.apache.lens.driver.jdbc.JDBCDriverConfConstants;
 import org.apache.lens.driver.jdbc.JDBCResultSet;
-import org.apache.lens.server.api.driver.LensDriver;
-import org.apache.lens.server.api.driver.LensResultSet;
-import org.apache.lens.server.api.driver.LensResultSetMetadata;
-import org.apache.lens.server.api.driver.InMemoryResultSet;
+import org.apache.lens.server.api.driver.*;
 import org.apache.lens.server.api.query.QueryContext;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
@@ -188,11 +185,9 @@ public class TestJDBCFinal {
         + "where time_dim.day between '1900-01-01' and '1900-01-03' "
         + "group by fact.time_key,time_dim.day_of_week,time_dim.day " + "order by dollars_sold desc";
 
-    QueryContext context = new QueryContext(query, "SA", baseConf, drivers);
-    context.getDriverContext().setDriverConf(baseConf);
-    context.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }});
-
-    context.setSelectedDriver(driver);
+    QueryContext context = new MockQueryContext.Builder().user("SA").query(query)
+      .conf(baseConf).driverQueries(new HashMap<LensDriver, String>() {{ put(driver, query); }})
+      .selectedDriver(driver).build();
 
     LensResultSet resultSet = driver.execute(context);
     assertNotNull(resultSet);
@@ -249,10 +244,9 @@ public class TestJDBCFinal {
         + "where time_dim.day between '1900-01-01' and '1900-01-04' " + "and location_dim.location_name = 'loc2' "
         + "group by fact.time_key,time_dim.day_of_week,time_dim.day " + "order by dollars_sold  desc ";
 
-    QueryContext context = new QueryContext(query, "SA", baseConf, drivers);
-    context.getDriverContext().setDriverConf(baseConf);
-    context.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }});
-    context.setSelectedDriver(driver);
+    QueryContext context = new MockQueryContext.Builder().query(query).user("SA")
+            .conf(baseConf).driverQueries(new HashMap<LensDriver, String>() {{ put(driver, query); }})
+            .selectedDriver(driver).build();
     LensResultSet resultSet = driver.execute(context);
     assertNotNull(resultSet);
 

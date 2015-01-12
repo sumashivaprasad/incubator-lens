@@ -127,19 +127,16 @@ public class TestHiveDriver {
     SessionState.get().setCurrentDatabase(DATA_BASE);
   }
 
-  protected QueryContext createContext(final String query, Configuration conf) {
-    QueryContext context = new QueryContext(query, "testuser", conf, drivers);
-    context.getDriverContext().setDriverConf(conf);
-    context.setSelectedDriver(driver);
-    context.setLensSessionIdentifier(sessionid);
-    return context;
+  protected QueryContext createContext(final String query, Configuration conf) throws LensException {
+    QueryContext ctx = new MockQueryContext.Builder().user("testuser").query(query).conf
+            (conf).driverQueries(new HashMap<LensDriver, String>() {{ put(driver, query); }}).build();
+    return ctx;
   }
 
-  protected QueryContext createContext(PreparedQueryContext query, Configuration conf) {
-    QueryContext context = new QueryContext(query, "testuser", conf);
-    context.getDriverContext().setDriverConf(conf);
-    context.setLensSessionIdentifier(sessionid);
-    return context;
+  protected QueryContext createContext(PreparedQueryContext query, Configuration conf) throws LensException {
+    QueryContext ctx = new MockQueryContext.Builder().user("testuser").prepared(query)
+      .conf(conf).session(sessionid).build();
+    return ctx;
   }
 
   /**

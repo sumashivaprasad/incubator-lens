@@ -46,7 +46,9 @@ import org.testng.Assert;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
-import org.apache.lens.server.api.driver.;
+
+import org.apache.lens.server.api.driver.MockQueryContext;
+
 
 import static org.testng.Assert.*;
 
@@ -102,14 +104,10 @@ public class TestJdbcDriver {
   }
 
   private QueryContext createQueryContext(final String query) throws LensException {
-//    QueryContext context = new QueryContext(query, "SA", baseConf, drivers);
-//    context.getDriverContext().setDriverConf(baseConf);
-//    context.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }});
-//    context.setSelectedDriver(driver);
-//    return context;
-
-    QueryContext ctx = new MockQueryContext.Builder().query(query).lensConf(lensConf).conf
-      (conf).driverQueries(driverQueries).build();
+    QueryContext ctx = new MockQueryContext.Builder().query(query).user("SA")
+      .conf(baseConf).driverQueries(new HashMap<LensDriver, String>() {{ put(driver, query); }})
+      .selectedDriver(driver).build();
+    return ctx;
   }
 
   /**
