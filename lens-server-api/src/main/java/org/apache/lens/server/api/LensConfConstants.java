@@ -177,6 +177,16 @@ public final class LensConfConstants {
   public static final long SESSION_TIMEOUT_SECONDS_DEFAULT = 1440 * 60; // Default is one day
 
   /**
+   * The Constant
+   */
+  public static final String  SERVER_UI_ENABLE = SERVER_PFX + "ui.enable";
+
+  /**
+   * The Constant
+   */
+  public static final boolean  DEFAULT_SERVER_UI_ENABLE = true;
+
+  /**
    * The Constant SERVER_UI_URI.
    */
   public static final String SERVER_UI_URI = SERVER_PFX + "ui.base.uri";
@@ -788,4 +798,13 @@ public final class LensConfConstants {
   /** Pluggable Query Rewriters invoked in the first phase of rewrite to CubeQL. */
   public static final String QUERY_PHASE1_REWRITERS = SERVER_PFX + "query.phase1.rewriters";
 
+  /**
+   * Key for reading Output Stream Buffer Size used in writing lens server state to file system
+   */
+  public static final String STATE_PERSIST_OUT_STREAM_BUFF_SIZE = SERVER_PFX + "state.persist.out.stream.buffer.size";
+
+  /**
+   * Default Output Stream Buffer Size used in writing lens server state to file system: 1MB
+   */
+  public static final int DEFAULT_STATE_PERSIST_OUT_STREAM_BUFF_SIZE = 1048576;
 }

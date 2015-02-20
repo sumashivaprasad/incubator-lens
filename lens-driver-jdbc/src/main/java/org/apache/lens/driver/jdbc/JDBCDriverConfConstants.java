@@ -21,7 +21,9 @@ package org.apache.lens.driver.jdbc;
 /**
  * The Interface JDBCDriverConfConstants.
  */
-public interface JDBCDriverConfConstants {
+public final class JDBCDriverConfConstants {
+  private JDBCDriverConfConstants() {
+  }
 
   /** The Constant JDBC_DRIVER_PFX. */
   public static final String JDBC_DRIVER_PFX = "lens.driver.jdbc.";
@@ -73,12 +75,17 @@ public interface JDBCDriverConfConstants {
 
   /** The Constant DEFAULT_JDBC_EXPLAIN_KEYWORD. */
   public static final String DEFAULT_JDBC_EXPLAIN_KEYWORD = "explain ";
- 
+
   /** The Constant JDBC_EXPLAIN_KEYWORD_BEFORE_SELECT. */
   public static final String JDBC_EXPLAIN_KEYWORD_BEFORE_SELECT = JDBC_DRIVER_PFX + "explain.before.select";
-  
+
   /** The Constant DEFAULT_JDBC_EXPLAIN_KEYWORD_BEFORE_SELECT. */
   public static final boolean DEFAULT_JDBC_EXPLAIN_KEYWORD_BEFORE_SELECT = true;
-  
-  
+
+  public static final String JDBC_ENABLE_RESULTSET_STREAMING_RETRIEVAL =
+    JDBC_DRIVER_PFX + "enable.resultset.streaming.retrieval";
+  public static final boolean DEFAULT_JDBC_ENABLE_RESULTSET_STREAMING_RETRIEVAL = false;
+
+  public static final String JDBC_FETCH_SIZE = JDBC_DRIVER_PFX + "fetch.size";
+  public static final int DEFAULT_JDBC_FETCH_SIZE = 1000;
 }

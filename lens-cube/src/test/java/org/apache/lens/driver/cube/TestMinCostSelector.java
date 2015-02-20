@@ -23,10 +23,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.lens.api.LensConf;
 import org.apache.lens.api.LensException;
 import org.apache.lens.server.api.driver.*;
+
+import org.apache.hadoop.conf.Configuration;
+
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -36,9 +38,11 @@ import org.testng.annotations.Test;
 public class TestMinCostSelector {
 
   private MockQueryContext createMockContext(String query, Configuration conf, LensConf lensConf,
+
                                              Map<LensDriver, String> driverQueries) throws LensException {
-    MockQueryContext ctx = new MockQueryContext.Builder().query(query).lensConf(lensConf).conf
+    MockQueryContext ctx = MockQueryContext.builder().query(query).lensConf(lensConf).conf
       (conf).driverQueries(driverQueries).build();
+    ctx.estimateCostForDrivers();
     return ctx;
   }
 
@@ -88,5 +92,14 @@ public class TestMinCostSelector {
 
     selected = selector.select(ctx, conf);
     Assert.assertEquals(d2, selected);
+
+    drivers.clear();
+    driverQueries.clear();
+    drivers.add(d1);
+    drivers.add(fd1);
+    driverQueries.put(d1, query);
+    ctx = createMockContext(query, conf, qconf, driverQueries);
+    selected = selector.select(ctx, conf);
+    Assert.assertEquals(d1, selected);
   }
 }

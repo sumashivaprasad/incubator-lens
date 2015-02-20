@@ -21,14 +21,19 @@ package org.apache.lens.cube.parse;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.lens.cube.metadata.UpdatePeriod;
+
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.lens.cube.metadata.UpdatePeriod;
 
 /**
  * Contains all configurations of cube query rewriting.
  */
-public class CubeQueryConfUtil {
+public final class CubeQueryConfUtil {
+  private CubeQueryConfUtil() {
+
+  }
+
   public static final String STORAGE_TABLES_SFX = ".storagetables";
   public static final String UPDATE_PERIODS_SFX = ".updateperiods";
   public static final String FACT_TABLES_SFX = ".facttables";
@@ -46,6 +51,8 @@ public class CubeQueryConfUtil {
   public static final String LOOK_AHEAD_PT_PARTS_PFX = "lens.cube.query.lookahead.ptparts.forinterval.";
   public static final String ENABLE_GROUP_BY_TO_SELECT = "lens.cube.query.promote.groupby.toselect";
   public static final String ENABLE_SELECT_TO_GROUPBY = "lens.cube.query.promote.select.togroupby";
+  public static final String ENABLE_ATTRFIELDS_ADD_DISTINCT = "lens.cube.query.enable.attrfields.add.distinct";
+  public static final boolean DEFAULT_ATTR_FIELDS_ADD_DISTINCT = true;
 
   public static final String REPLACE_TIMEDIM_WITH_PART_COL = "lens.cube.query.replace.timedim";
   public static final boolean DEFAULT_MULTI_TABLE_SELECT = true;
@@ -98,6 +105,6 @@ public class CubeQueryConfUtil {
   public static final boolean DEFAULT_LIGHTEST_FACT_FIRST = false;
   public static final String TIME_RANGE_WRITER_CLASS = "lens.cube.query.time.range.writer.class";
   public static final Class<? extends TimeRangeWriter> DEFAULT_TIME_RANGE_WRITER = ORTimeRangeWriter.class
-      .asSubclass(TimeRangeWriter.class);
+    .asSubclass(TimeRangeWriter.class);
   public static final String PART_WHERE_CLAUSE_DATE_FORMAT = "lens.cube.query.partition.where.clause.format";
 }

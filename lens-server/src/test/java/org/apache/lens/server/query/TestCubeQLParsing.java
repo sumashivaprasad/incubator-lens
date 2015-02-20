@@ -18,10 +18,14 @@
  */
 package org.apache.lens.server.query;
 
+import static org.mockito.Matchers.any;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
+<<<<<<< HEAD:lens-server/src/test/java/org/apache/lens/server/query/TestCubeQLParsing.java
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.ql.Context;
@@ -29,6 +33,8 @@ import org.apache.hadoop.hive.ql.parse.ASTNode;
 import org.apache.hadoop.hive.ql.parse.HiveParser;
 import org.apache.hadoop.hive.ql.parse.ParseException;
 import org.apache.hadoop.hive.ql.parse.SemanticException;
+=======
+>>>>>>> 54f427c872485f2a860946aef200150de6692da0:lens-cube/src/test/java/org/apache/lens/driver/cube/TestRewriting.java
 import org.apache.lens.api.LensConf;
 import org.apache.lens.api.LensException;
 import org.apache.lens.cube.parse.CubeQueryContext;
@@ -36,24 +42,32 @@ import org.apache.lens.cube.parse.CubeQueryRewriter;
 import org.apache.lens.cube.parse.HQLParser;
 import org.apache.lens.server.api.LensConfConstants;
 import org.apache.lens.server.api.driver.LensDriver;
-
-import static org.mockito.Matchers.any;
-
 import org.apache.lens.server.api.driver.MockDriver;
 import org.apache.lens.server.api.query.QueryContext;
+<<<<<<< HEAD:lens-server/src/test/java/org/apache/lens/server/query/TestCubeQLParsing.java
 import org.apache.lens.server.api.query.QueryRewriter;
 import org.mockito.Matchers;
+=======
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.ql.Context;
+import org.apache.hadoop.hive.ql.parse.ASTNode;
+import org.apache.hadoop.hive.ql.parse.HiveParser;
+import org.apache.hadoop.hive.ql.parse.ParseException;
+import org.apache.hadoop.hive.ql.parse.SemanticException;
+
+import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
+>>>>>>> 54f427c872485f2a860946aef200150de6692da0:lens-cube/src/test/java/org/apache/lens/driver/cube/TestRewriting.java
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.testng.PowerMockObjectFactory;
-import org.mockito.Mockito;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
 import org.testng.Assert;
-import org.testng.annotations.Test;
 import org.testng.IObjectFactory;
 import org.testng.annotations.ObjectFactory;
+import org.testng.annotations.Test;
 
 /**
  * The Class TestRewriting.
@@ -62,7 +76,6 @@ import org.testng.annotations.ObjectFactory;
 @PowerMockIgnore({ "org.apache.log4j.*", "javax.management.*", "javax.xml.*",
     "com.sun.org.apache.xerces.internal.jaxp.*", "ch.qos.logback.*", "org.slf4j.*", "org.w3c.dom*" })
 public class TestCubeQLParsing {
-
   /**
    * We need a special {@link IObjectFactory}.
    *
@@ -70,8 +83,14 @@ public class TestCubeQLParsing {
    */
   @ObjectFactory
   public IObjectFactory getObjectFactory() {
-    return new org.powermock.modules.testng.PowerMockObjectFactory();
+    return new PowerMockObjectFactory();
   }
+
+  static int i = 0;
+  // number of successful queries through mock rewriter
+  // we use this number to mock failures after successful queries
+  // change the number, if more tests for success needs to be added
+  static final int NUM_SUCCESS = 36;
 
   private CubeQueryRewriter getMockedRewriter() throws SemanticException, ParseException {
     CubeQueryRewriter mockwriter = Mockito.mock(CubeQueryRewriter.class);
@@ -79,7 +98,13 @@ public class TestCubeQLParsing {
       @Override
       public CubeQueryContext answer(InvocationOnMock invocation) throws Throwable {
         Object[] args = invocation.getArguments();
-        return getMockedCubeContext((String) args[0]);
+        i++;
+        // return query for first NUM_SUCCESS calls and fail later
+        if (i <= NUM_SUCCESS) {
+          return getMockedCubeContext((String) args[0]);
+        } else {
+          throw new RuntimeException("Mock fail");
+        }
       }
     });
     Mockito.when(mockwriter.rewrite(Matchers.any(ASTNode.class))).thenAnswer(new Answer<CubeQueryContext>() {
@@ -95,13 +120,10 @@ public class TestCubeQLParsing {
   /**
    * Gets the mocked cube context.
    *
-   * @param query
-   *          the query
+   * @param query the query
    * @return the mocked cube context
-   * @throws SemanticException
-   *           the semantic exception
-   * @throws ParseException
-   *           the parse exception
+   * @throws SemanticException the semantic exception
+   * @throws ParseException    the parse exception
    */
   private CubeQueryContext getMockedCubeContext(String query) throws SemanticException, ParseException {
     CubeQueryContext context = Mockito.mock(CubeQueryContext.class);
@@ -113,13 +135,10 @@ public class TestCubeQLParsing {
   /**
    * Gets the mocked cube context.
    *
-   * @param ast
-   *          the ast
+   * @param ast the ast
    * @return the mocked cube context
-   * @throws SemanticException
-   *           the semantic exception
-   * @throws ParseException
-   *           the parse exception
+   * @throws SemanticException the semantic exception
+   * @throws ParseException    the parse exception
    */
   private CubeQueryContext getMockedCubeContext(ASTNode ast) throws SemanticException, ParseException {
     CubeQueryContext context = Mockito.mock(CubeQueryContext.class);
@@ -142,12 +161,9 @@ public class TestCubeQLParsing {
   /**
    * Test cube query.
    *
-   * @throws ParseException
-   *           the parse exception
-   * @throws SemanticException
-   *           the semantic exception
-   * @throws LensException
-   *           the lens exception
+   * @throws ParseException    the parse exception
+   * @throws SemanticException the semantic exception
+   * @throws LensException     the lens exception
    */
   @Test
   public void testCubeQuery() throws ParseException, SemanticException, LensException {
@@ -240,12 +256,12 @@ public class TestCubeQLParsing {
     RewriteUtil.rewriteToHQL(ctx);
 
     q2 = "select * from (      cube select name from table where"
-        + " (name = 'ABC'||name = 'XYZ')&&(key=100)   )       a";
+      + " (name = 'ABC'||name = 'XYZ')&&(key=100)   )       a";
     Assert.assertTrue(RewriteUtil.isCubeQuery(q2));
     cubeQueries = RewriteUtil.findCubePositions(RewriteUtil.getReplacedQuery(q2));
     Assert.assertEquals(cubeQueries.size(), 1);
     Assert.assertEquals(cubeQueries.get(0).query, "cube select name from"
-        + " table where (name = 'ABC' OR name = 'XYZ') AND (key=100)");
+      + " table where (name = 'ABC' OR name = 'XYZ') AND (key=100)");
     ctx = new QueryContext(q2, null, lensConf, conf, drivers);
     RewriteUtil.rewriteToHQL(ctx);
 
@@ -259,7 +275,7 @@ public class TestCubeQLParsing {
     RewriteUtil.rewriteToHQL(ctx);
 
     q2 = "select * from (cube select name from table) a full outer join"
-        + " (cube select name2 from table2) b on a.name=b.name2";
+      + " (cube select name2 from table2) b on a.name=b.name2";
     Assert.assertTrue(RewriteUtil.isCubeQuery(q2));
     cubeQueries = RewriteUtil.findCubePositions(q2);
     Assert.assertEquals(cubeQueries.size(), 2);
@@ -284,10 +300,9 @@ public class TestCubeQLParsing {
     Assert.assertEquals(cubeQueries.size(), 2);
     Assert.assertEquals(cubeQueries.get(0).query, "cube select name from table");
     Assert.assertEquals(cubeQueries.get(1).query, "cube select name2 from table2");
-    ctx = new QueryContext(q2, null, lensConf, conf, drivers);
-    RewriteUtil.rewriteToHQL(ctx);
 
-    q2 = "insert overwrite directory '/tmp/rewrite' select * from (cube select name from table union all cube select name2 from table2) u";
+    q2 = "insert overwrite directory '/tmp/rewrite' "
+      + "select * from (cube select name from table union all cube select name2 from table2) u";
     Assert.assertTrue(RewriteUtil.isCubeQuery(q2));
     cubeQueries = RewriteUtil.findCubePositions(q2);
     ctx = new QueryContext(q2, null, lensConf, conf, drivers);
@@ -295,8 +310,6 @@ public class TestCubeQLParsing {
     Assert.assertEquals(cubeQueries.size(), 2);
     Assert.assertEquals(cubeQueries.get(0).query, "cube select name from table");
     Assert.assertEquals(cubeQueries.get(1).query, "cube select name2 from table2");
-    ctx = new QueryContext(q2, null, lensConf, conf, drivers);
-    RewriteUtil.rewriteToHQL(ctx);
 
     q2 = "select u.* from (select name from table    union all       cube select name2 from table2)   u";
     Assert.assertTrue(RewriteUtil.isCubeQuery(q2));
@@ -315,7 +328,7 @@ public class TestCubeQLParsing {
     RewriteUtil.rewriteToHQL(ctx);
 
     q2 = "select * from (cube select name from table union all cube select name2"
-        + " from table2 union all cube select name3 from table3) u";
+      + " from table2 union all cube select name3 from table3) u";
     Assert.assertTrue(RewriteUtil.isCubeQuery(q2));
     cubeQueries = RewriteUtil.findCubePositions(q2);
     ctx = new QueryContext(q2, null, lensConf, conf, drivers);
@@ -324,11 +337,9 @@ public class TestCubeQLParsing {
     Assert.assertEquals(cubeQueries.get(0).query, "cube select name from table");
     Assert.assertEquals(cubeQueries.get(1).query, "cube select name2 from table2");
     Assert.assertEquals(cubeQueries.get(2).query, "cube select name3 from table3");
-    ctx = new QueryContext(q2, null, lensConf, conf, drivers);
-    RewriteUtil.rewriteToHQL(ctx);
 
     q2 = "select * from   (     cube select name from table    union all   cube"
-        + " select name2 from table2   union all  cube select name3 from table3 )  u";
+      + " select name2 from table2   union all  cube select name3 from table3 )  u";
     Assert.assertTrue(RewriteUtil.isCubeQuery(q2));
     cubeQueries = RewriteUtil.findCubePositions(q2);
     ctx = new QueryContext(q2, null, lensConf, conf, drivers);
@@ -337,8 +348,6 @@ public class TestCubeQLParsing {
     Assert.assertEquals(cubeQueries.get(0).query, "cube select name from table");
     Assert.assertEquals(cubeQueries.get(1).query, "cube select name2 from table2");
     Assert.assertEquals(cubeQueries.get(2).query, "cube select name3 from table3");
-    ctx = new QueryContext(q2, null, lensConf, conf, drivers);
-    RewriteUtil.rewriteToHQL(ctx);
 
     q2 = "select * from (cube select name from table union all cube select" + " name2 from table2) u group by u.name";
     Assert.assertTrue(RewriteUtil.isCubeQuery(q2));
@@ -357,8 +366,7 @@ public class TestCubeQLParsing {
     Assert.assertEquals(cubeQueries.size(), 2);
     Assert.assertEquals(cubeQueries.get(0).query, "cube select name from table");
     Assert.assertEquals(cubeQueries.get(1).query, "cube select name2 from table2");
-    ctx = new QueryContext(q2, null, lensConf, conf, drivers);
-    RewriteUtil.rewriteToHQL(ctx);
+
 
     q2 = "create table temp1 as cube select name from table";
     Assert.assertTrue(RewriteUtil.isCubeQuery(q2));
@@ -367,11 +375,9 @@ public class TestCubeQLParsing {
     RewriteUtil.rewriteToHQL(ctx);
     Assert.assertEquals(cubeQueries.size(), 1);
     Assert.assertEquals(cubeQueries.get(0).query, "cube select name from table");
-    ctx = new QueryContext(q2, null, lensConf, conf, drivers);
-    RewriteUtil.rewriteToHQL(ctx);
 
     q2 = "create table temp1 as select * from (cube select name from table union all cube select"
-        + " name2 from table2)  u group by u.name";
+      + " name2 from table2)  u group by u.name";
     Assert.assertTrue(RewriteUtil.isCubeQuery(q2));
     cubeQueries = RewriteUtil.findCubePositions(q2);
     ctx = new QueryContext(q2, null, lensConf, conf, drivers);
@@ -379,19 +385,38 @@ public class TestCubeQLParsing {
     Assert.assertEquals(cubeQueries.size(), 2);
     Assert.assertEquals(cubeQueries.get(0).query, "cube select name from table");
     Assert.assertEquals(cubeQueries.get(1).query, "cube select name2 from table2");
-    ctx = new QueryContext(q2, null, lensConf, conf, drivers);
-    RewriteUtil.rewriteToHQL(ctx);
 
-    q2 = "create table temp1 as cube select name from table where time_range_in('dt', '2014-06-24-23', '2014-06-25-00')";
+    q2 = "create table temp1 as cube select name from table where"
+      + " time_range_in('dt', '2014-06-24-23', '2014-06-25-00')";
     Assert.assertTrue(RewriteUtil.isCubeQuery(q2));
     cubeQueries = RewriteUtil.findCubePositions(q2);
     ctx = new QueryContext(q2, null, lensConf, conf, drivers);
     RewriteUtil.rewriteToHQL(ctx);
     Assert.assertEquals(cubeQueries.size(), 1);
     Assert.assertEquals(cubeQueries.get(0).query,
-        "cube select name from table where time_range_in('dt', '2014-06-24-23', '2014-06-25-00')");
-    ctx = new QueryContext(q2, null, lensConf, conf, drivers);
-    RewriteUtil.rewriteToHQL(ctx);
+      "cube select name from table where time_range_in('dt', '2014-06-24-23', '2014-06-25-00')");
 
+    // failing query for second driver
+    MockDriver driver2 = new MockDriver();
+    driver2.configure(conf);
+    drivers.add(driver2);
+
+    ctx = new QueryContext(q2, null, lensConf, conf, drivers);
+
+    RewriteUtil.rewriteToHQL(ctx);
+    Assert.assertEquals(dQueries.size(), 1);
+
+    // running again will fail on both drivers
+    ctx = new QueryContext(q2, null, lensConf, conf, drivers);
+    Throwable th = null;
+    try {
+      RewriteUtil.rewriteQuery(ctx);
+      Assert.fail("Shouldn't succeed");
+    } catch (LensException e) {
+      th = e;
+    }
+    Assert.assertNotNull(th);
+    Assert.assertTrue(
+      th.getMessage().contains("Rewriting failed, cause :No driver accepted the query, because Mock fail"));
   }
 }

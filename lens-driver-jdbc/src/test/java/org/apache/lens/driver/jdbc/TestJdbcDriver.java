@@ -18,37 +18,38 @@
  */
 package org.apache.lens.driver.jdbc;
 
+import static org.testng.Assert.*;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hive.service.cli.ColumnDescriptor;
+import org.apache.lens.api.LensConf;
 import org.apache.lens.api.LensException;
+import org.apache.lens.api.query.QueryCost;
 import org.apache.lens.api.query.QueryHandle;
 import org.apache.lens.api.query.ResultRow;
-import org.apache.lens.server.api.driver.LensDriver;
-import org.apache.lens.server.api.driver.LensResultSet;
-import org.apache.lens.server.api.driver.LensResultSetMetadata;
-import org.apache.lens.server.api.driver.InMemoryResultSet;
-import org.apache.lens.server.api.driver.QueryCompletionListener;
+import org.apache.lens.server.api.driver.*;
 import org.apache.lens.server.api.driver.DriverQueryStatus.DriverQueryState;
+import org.apache.lens.server.api.query.ExplainQueryContext;
 import org.apache.lens.server.api.query.PreparedQueryContext;
 import org.apache.lens.server.api.query.QueryContext;
+import org.apache.lens.server.api.util.LensUtil;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.conf.HiveConf;
+import org.apache.hadoop.hive.ql.session.SessionState;
+import org.apache.hive.service.cli.ColumnDescriptor;
+
 import org.testng.Assert;
 import org.testng.annotations.AfterTest;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 import org.apache.lens.server.api.driver.;
-
-import static org.testng.Assert.*;
 
 /**
  * The Class TestJdbcDriver.
@@ -66,8 +67,7 @@ public class TestJdbcDriver {
   /**
    * Test create jdbc driver.
    *
-   * @throws Exception
-   *           the exception
+   * @throws Exception the exception
    */
   @BeforeTest
   public void testCreateJdbcDriver() throws Exception {
@@ -93,32 +93,35 @@ public class TestJdbcDriver {
   /**
    * Close.
    *
-   * @throws Exception
-   *           the exception
+   * @throws Exception the exception
    */
   @AfterTest
   public void close() throws Exception {
     driver.close();
   }
 
-  private QueryContext createQueryContext(final String query) throws LensException {
-//    QueryContext context = new QueryContext(query, "SA", baseConf, drivers);
-//    context.getDriverContext().setDriverConf(baseConf);
-//    context.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }});
-//    context.setSelectedDriver(driver);
-//    return context;
+  @BeforeMethod
+  public void beforeMethod() throws Exception {
+    if (SessionState.get() == null) {
+      SessionState.start(new HiveConf(baseConf, TestJdbcDriver.class));
+    }
+  }
 
+  private QueryContext createQueryContext(final String query) throws LensException {
     QueryContext ctx = new MockQueryContext.Builder().query(query).lensConf(lensConf).conf
       (conf).driverQueries(driverQueries).build();
+  }
+
+  protected ExplainQueryContext createExplainContext(final String query, Configuration conf) {
+    ExplainQueryContext ectx = new ExplainQueryContext(query, "testuser", null, conf, drivers);
+    return ectx;
   }
 
   /**
    * Creates the table.
    *
-   * @param table
-   *          the table
-   * @throws Exception
-   *           the exception
+   * @param table the table
+   * @throws Exception the exception
    */
   synchronized void createTable(String table) throws Exception {
     Connection conn = null;
@@ -142,10 +145,8 @@ public class TestJdbcDriver {
   /**
    * Insert data.
    *
-   * @param table
-   *          the table
-   * @throws Exception
-   *           the exception
+   * @param table the table
+   * @throws Exception the exception
    */
   void insertData(String table) throws Exception {
     Connection conn = null;
@@ -221,10 +222,40 @@ public class TestJdbcDriver {
   }
 
   /**
+   * Test estimate.
+   *
+   * @throws Exception the exception
+   */
+  @Test
+  public void testEstimate() throws Exception {
+    createTable("estimate_test"); // Create table
+    insertData("estimate_test"); // Insert some data into table
+    String query1 = "SELECT * FROM estimate_test"; // Select query against existing table
+    QueryCost cost = driver.estimate(createExplainContext(query1, baseConf));
+    Assert.assertEquals(cost.getEstimatedExecTimeMillis(), 0);
+    Assert.assertEquals(cost.getEstimatedResourceUsage(), 0.0);
+  }
+
+  /**
+   * Test estimate failing
+   *
+   * @throws Exception the exception
+   */
+  @Test
+  public void testEstimateFailing() throws Exception {
+    String query2 = "SELECT * FROM estimate_test2"; // Select query against non existing table
+    try {
+      driver.estimate(createExplainContext(query2, baseConf));
+      Assert.fail("Running estimate on a non existing table.");
+    } catch (LensException ex) {
+      Assert.assertEquals(LensUtil.getCauseMessage(ex), "user lacks privilege or object not found: ESTIMATE_TEST2");
+    }
+  }
+
+  /**
    * Test explain.
    *
-   * @throws Exception
-   *           the exception
+   * @throws Exception the exception
    */
   @Test
   public void testExplain() throws Exception {
@@ -232,10 +263,10 @@ public class TestJdbcDriver {
     insertData("explain_test"); // Insert some data into table
     String query1 = "SELECT * FROM explain_test"; // Select query against existing table
     String query2 = "SELECT * FROM explain_test1"; // Select query against non existing table
-    driver.explain(query1, baseConf);
+    driver.explain(createExplainContext(query1, baseConf));
 
     try {
-      driver.explain(query2, baseConf);
+      driver.explain(createExplainContext(query2, baseConf));
       Assert.fail("Running explain on a non existing table.");
     } catch (LensException ex) {
       System.out.println("Error : " + ex);
@@ -245,8 +276,7 @@ public class TestJdbcDriver {
   /**
    * Test execute.
    *
-   * @throws Exception
-   *           the exception
+   * @throws Exception the exception
    */
   @Test
   public void testExecute() throws Exception {
@@ -284,8 +314,7 @@ public class TestJdbcDriver {
   /**
    * Test prepare.
    *
-   * @throws Exception
-   *           the exception
+   * @throws Exception the exception
    */
   @Test
   public void testPrepare() throws Exception {
@@ -297,14 +326,14 @@ public class TestJdbcDriver {
     pContext.getDriverContext().setDriverConf(baseConf);
     pContext.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }});
     pContext.setSelectedDriver(driver);
+
     driver.prepare(pContext);
   }
 
   /**
    * Test execute async.
    *
-   * @throws Exception
-   *           the exception
+   * @throws Exception the exception
    */
   @Test
   public void testExecuteAsync() throws Exception {
@@ -394,8 +423,7 @@ public class TestJdbcDriver {
   /**
    * Test connection close for failed queries.
    *
-   * @throws Exception
-   *           the exception
+   * @throws Exception the exception
    */
   @Test
   public void testConnectionCloseForFailedQueries() throws Exception {
@@ -403,7 +431,7 @@ public class TestJdbcDriver {
     insertData("invalid_conn_close");
 
     final String query = "SELECT * from invalid_conn_close2";
-    QueryContext ctx = createQueryContext(query);
+    QueryContext ctx = new QueryContext(query, "SA", new LensConf(), baseConf, drivers);
 
     for (int i = 0; i < JDBCDriverConfConstants.JDBC_POOL_MAX_SIZE_DEFAULT; i++) {
       driver.executeAsync(ctx);
@@ -431,8 +459,7 @@ public class TestJdbcDriver {
   /**
    * Test connection close for successful queries.
    *
-   * @throws Exception
-   *           the exception
+   * @throws Exception the exception
    */
   @Test
   public void testConnectionCloseForSuccessfulQueries() throws Exception {
@@ -471,8 +498,7 @@ public class TestJdbcDriver {
   /**
    * Test cancel query.
    *
-   * @throws Exception
-   *           the exception
+   * @throws Exception the exception
    */
   @Test
   public void testCancelQuery() throws Exception {
@@ -501,13 +527,12 @@ public class TestJdbcDriver {
   /**
    * Test invalid query.
    *
-   * @throws Exception
-   *           the exception
+   * @throws Exception the exception
    */
   @Test
   public void testInvalidQuery() throws Exception {
     final String query = "SELECT * FROM invalid_table";
-    QueryContext ctx = createQueryContext(query);
+    QueryContext ctx = new QueryContext(query, "SA", new LensConf(), baseConf, drivers);
     try {
       LensResultSet rs = driver.execute(ctx);
       fail("Should have thrown exception");

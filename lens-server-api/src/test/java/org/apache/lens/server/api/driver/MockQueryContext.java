@@ -18,9 +18,11 @@
  */
 package org.apache.lens.server.api.driver;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.lens.api.LensConf;
 import org.apache.lens.api.LensException;
+import org.apache.lens.server.api.query.PreparedQueryContext;
 import org.apache.lens.server.api.query.QueryContext;
 import parquet.Preconditions;
 
@@ -30,6 +32,7 @@ public class MockQueryContext extends QueryContext {
 
   public static class Builder {
 
+    private PreparedQueryContext preparedQueryContext;
     private String query;
     private String user;
     private LensConf qconf;
@@ -40,6 +43,11 @@ public class MockQueryContext extends QueryContext {
 
     public Builder query(String query) {
       this.query = query;
+      return this;
+    }
+
+    public Builder prepared(PreparedQueryContext preparedQueryContext) {
+      this.preparedQueryContext = preparedQueryContext;
       return this;
     }
 
@@ -74,16 +82,29 @@ public class MockQueryContext extends QueryContext {
     }
 
     public MockQueryContext build() throws LensException {
-      Preconditions.checkNotNull(query, "Query should not be null");
-      Preconditions.checkNotNull(qconf, "LensConf should not be null");
+      Preconditions.checkArgument(StringUtils.isNotBlank(query),
+                                  "Query should not be null");
       Preconditions.checkNotNull(conf, "Configuration should not be null");
       Preconditions.checkNotNull(driverQueries, "Driver Queries should not be null");
-      MockQueryContext ctx = new MockQueryContext.Builder().query(query).user(user).lensConf(qconf).conf
-        (conf).driverQueries(driverQueries).build();
-      if(selectedDriver != null) {
+      MockQueryContext ctx = new MockQueryContext(query, user, qconf, conf, driverQueries);
+      if (selectedDriver != null) {
         ctx.setSelectedDriver(selectedDriver);
       }
-      if(lensSessionId != null) {
+      if (lensSessionId != null) {
+        ctx.setLensSessionIdentifier(lensSessionId);
+      }
+      return ctx;
+    }
+
+    public MockQueryContext buildPrepared() throws LensException {
+      Preconditions.checkNotNull(query,
+                                 "Query should not be null");
+      Preconditions.checkNotNull(conf, "Configuration should not be null");
+      MockQueryContext ctx = new MockQueryContext(preparedQueryContext, user, qconf, conf);
+      if (selectedDriver != null) {
+        ctx.setSelectedDriver(selectedDriver);
+      }
+      if (lensSessionId != null) {
         ctx.setLensSessionIdentifier(lensSessionId);
       }
       return ctx;
@@ -92,11 +113,17 @@ public class MockQueryContext extends QueryContext {
   }
 
   protected MockQueryContext(final String query, final String user, final LensConf qconf,
-    final Configuration conf, final Map<LensDriver, String> driverQueries) throws
+                             final Configuration conf, final Map<LensDriver, String> driverQueries) throws
     LensException {
     super(query, user, qconf, conf, driverQueries.keySet());
     getDriverContext().setDriverConf(conf);
-    getDriverContext().setDriverQueriesAndPlans(driverQueries);
+    setDriverQueries(driverQueries);
+  }
+
+  protected MockQueryContext(final PreparedQueryContext query, final String user, final LensConf qconf,
+                             final Configuration conf) throws
+    LensException {
+    super(query, user, qconf, conf);
   }
 
   public Builder builder() {

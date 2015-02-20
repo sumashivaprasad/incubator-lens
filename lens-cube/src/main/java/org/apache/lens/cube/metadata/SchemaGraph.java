@@ -18,18 +18,24 @@
  */
 package org.apache.lens.cube.metadata;
 
+import java.util.*;
+
 import org.apache.hadoop.hive.ql.metadata.HiveException;
 
-import java.util.*;
+import lombok.Getter;
 
 public class SchemaGraph {
   /*
    * An edge in the schema graph
    */
   public static class TableRelationship {
+    @Getter
     final String fromColumn;
+    @Getter
     final AbstractCubeTable fromTable;
+    @Getter
     final String toColumn;
+    @Getter
     final AbstractCubeTable toTable;
 
     public TableRelationship(String fromCol, AbstractCubeTable fromTab, String toCol, AbstractCubeTable toTab) {
@@ -37,22 +43,6 @@ public class SchemaGraph {
       fromTable = fromTab;
       toColumn = toCol;
       toTable = toTab;
-    }
-
-    public String getFromColumn() {
-      return fromColumn;
-    }
-
-    public String getToColumn() {
-      return toColumn;
-    }
-
-    public AbstractCubeTable getFromTable() {
-      return fromTable;
-    }
-
-    public AbstractCubeTable getToTable() {
-      return toTable;
     }
 
     @Override
@@ -188,9 +178,8 @@ public class SchemaGraph {
     }
 
     /**
-     * Recursive DFS to get all paths between source and target. Let path till
-     * this node = p Paths at node adjacent to target = [edges leading to
-     * target] Path at a random node = [path till this node + p for each p in
+     * Recursive DFS to get all paths between source and target. Let path till this node = p Paths at node adjacent to
+     * target = [edges leading to target] Path at a random node = [path till this node + p for each p in
      * path(neighbors)]
      */
     List<JoinPath> findAllPathsToTarget(AbstractCubeTable source, JoinPath joinPathTillSource,
@@ -216,8 +205,9 @@ public class SchemaGraph {
         } else if (neighbor instanceof Dimension) {
           List<JoinPath> pathsFromNeighbor = findAllPathsToTarget(neighbor, new JoinPath(p), visited);
           for (JoinPath pn : pathsFromNeighbor) {
-            if (!pn.isEmpty())
+            if (!pn.isEmpty()) {
               joinPaths.add(pn);
+            }
           }
         }
       }
@@ -227,8 +217,7 @@ public class SchemaGraph {
   }
 
   /**
-   * Graph of tables in the cube metastore. Links between the tables are
-   * relationships in the cube.
+   * Graph of tables in the cube metastore. Links between the tables are relationships in the cube.
    */
   private final CubeMetastoreClient metastore;
   // Graph for each cube
@@ -274,8 +263,10 @@ public class SchemaGraph {
     cubeOutGraph = new HashMap<CubeInterface, Map<AbstractCubeTable, Set<TableRelationship>>>();
     cubeInGraph = new HashMap<CubeInterface, Map<AbstractCubeTable, Set<TableRelationship>>>();
     for (CubeInterface cube : metastore.getAllCubes()) {
-      Map<AbstractCubeTable, Set<TableRelationship>> outGraph = new HashMap<AbstractCubeTable, Set<TableRelationship>>();
-      Map<AbstractCubeTable, Set<TableRelationship>> inGraph = new HashMap<AbstractCubeTable, Set<TableRelationship>>();
+      Map<AbstractCubeTable, Set<TableRelationship>> outGraph
+        = new HashMap<AbstractCubeTable, Set<TableRelationship>>();
+      Map<AbstractCubeTable, Set<TableRelationship>> inGraph
+        = new HashMap<AbstractCubeTable, Set<TableRelationship>>();
       buildGraph((AbstractCubeTable) cube, outGraph, inGraph);
 
       for (Dimension dim : metastore.getAllDimensions()) {

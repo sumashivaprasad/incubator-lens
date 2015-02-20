@@ -18,10 +18,19 @@
  */
 package org.apache.lens.driver.jdbc;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hive.ql.parse.ASTNode;
-import org.apache.hadoop.hive.ql.parse.HiveParser;
-import org.apache.hadoop.hive.ql.parse.ParseException;
+import static org.apache.lens.driver.jdbc.JDBCDriverConfConstants.*;
+
+import static org.apache.hadoop.hive.ql.parse.HiveParser.TOK_TMP_FILE;
+
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.lens.api.LensConf;
 import org.apache.lens.api.LensException;
 import org.apache.lens.api.query.QueryCost;
 import org.apache.lens.api.query.QueryHandle;
@@ -31,28 +40,19 @@ import org.apache.lens.server.api.LensConfConstants;
 import org.apache.lens.server.api.driver.*;
 import org.apache.lens.server.api.driver.DriverQueryStatus.DriverQueryState;
 import org.apache.lens.server.api.events.LensEventListener;
-import static org.apache.lens.server.api.query.DriverSelectorQueryContext.DriverQueryContext;
+import org.apache.lens.server.api.query.AbstractQueryContext;
 import org.apache.lens.server.api.query.PreparedQueryContext;
 import org.apache.lens.server.api.query.QueryContext;
 import org.apache.lens.server.api.query.QueryRewriter;
-import org.apache.log4j.Logger;
 
-import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.ql.parse.ASTNode;
+import org.apache.hadoop.hive.ql.parse.HiveParser;
+import org.apache.hadoop.hive.ql.parse.ParseException;
+import org.apache.log4j.Logger;
 
 import lombok.Getter;
 import lombok.Setter;
-import static org.apache.hadoop.hive.ql.parse.HiveParser.TOK_TMP_FILE;
-import static org.apache.lens.driver.jdbc.JDBCDriverConfConstants.*;
 
 /**
  * This driver is responsible for running queries against databases which can be queried using the JDBC API.
@@ -62,8 +62,8 @@ public class JDBCDriver implements LensDriver {
   /** The Constant LOG. */
   public static final Logger LOG = Logger.getLogger(JDBCDriver.class);
 
-  /** The Constant thid. */
-  public static final AtomicInteger thid = new AtomicInteger();
+  /** The Constant THID. */
+  public static final AtomicInteger THID = new AtomicInteger();
 
   /** The connection provider. */
   private ConnectionProvider connectionProvider;
@@ -139,8 +139,7 @@ public class JDBCDriver implements LensDriver {
     /**
      * Instantiates a new jdbc query context.
      *
-     * @param context
-     *          the context
+     * @param context the context
      */
     public JdbcQueryContext(QueryContext context) {
       this.lensContext = context;
@@ -149,8 +148,7 @@ public class JDBCDriver implements LensDriver {
     /**
      * Notify error.
      *
-     * @param th
-     *          the th
+     * @param th the th
      */
     public void notifyError(Throwable th) {
       // If query is closed in another thread while the callable is still waiting for result
@@ -235,11 +233,9 @@ public class JDBCDriver implements LensDriver {
     /**
      * Gets the lens result set.
      *
-     * @param closeAfterFetch
-     *          the close after fetch
+     * @param closeAfterFetch the close after fetch
      * @return the lens result set
-     * @throws LensException
-     *           the lens exception
+     * @throws LensException the lens exception
      */
     protected synchronized LensResultSet getLensResultSet(boolean closeAfterFetch) throws LensException {
       if (error != null) {
@@ -263,8 +259,7 @@ public class JDBCDriver implements LensDriver {
     /**
      * Instantiates a new query callable.
      *
-     * @param queryContext
-     *          the query context
+     * @param queryContext the query context
      */
     public QueryCallable(JdbcQueryContext queryContext) {
       this.queryContext = queryContext;
@@ -273,7 +268,7 @@ public class JDBCDriver implements LensDriver {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see java.util.concurrent.Callable#call()
      */
     @Override
@@ -294,7 +289,7 @@ public class JDBCDriver implements LensDriver {
 
         if (conn != null) {
           try {
-            stmt = getStatement(conn);
+            stmt = createStatement(conn);
             result.stmt = stmt;
             Boolean isResultAvailable = stmt.execute(queryContext.getRewrittenQuery());
             if (isResultAvailable) {
@@ -304,10 +299,10 @@ public class JDBCDriver implements LensDriver {
           } catch (SQLException sqlEx) {
             if (queryContext.isClosed()) {
               LOG.info("Ignored exception on already closed query: " + queryContext.getLensContext().getQueryHandle()
-                  + " - " + sqlEx);
+                + " - " + sqlEx);
             } else {
               LOG.error("Error executing SQL query: " + queryContext.getLensContext().getQueryHandle() + " reason: "
-                  + sqlEx.getMessage(), sqlEx);
+                + sqlEx.getMessage(), sqlEx);
               result.error = sqlEx;
               // Close connection in case of failed queries. For successful queries, connection is closed
               // When result set is closed or driver.closeQuery is called
@@ -323,17 +318,38 @@ public class JDBCDriver implements LensDriver {
     }
 
     /**
-     * Gets the statement.
+     * Create statement used to issue the query
      *
-     * @param conn
-     *          the conn
-     * @return the statement
-     * @throws SQLException
-     *           the SQL exception
+     * @param conn pre created SQL Connection object
+     * @return statement
+     * @throws SQLException the SQL exception
      */
-    public Statement getStatement(Connection conn) throws SQLException {
-      Statement stmt = queryContext.isPrepared() ? conn.prepareStatement(queryContext.getRewrittenQuery()) : conn
-          .createStatement();
+    public Statement createStatement(Connection conn) throws SQLException {
+      Statement stmt;
+
+      boolean enabledRowRetrieval = queryContext.getLensContext().getSelectedDriverConf().getBoolean(
+        JDBCDriverConfConstants.JDBC_ENABLE_RESULTSET_STREAMING_RETRIEVAL,
+        JDBCDriverConfConstants.DEFAULT_JDBC_ENABLE_RESULTSET_STREAMING_RETRIEVAL);
+
+      if (enabledRowRetrieval) {
+        LOG.info("JDBC streaming retrieval is enabled for " + queryContext.getLensContext().getQueryHandle());
+        if (queryContext.isPrepared()) {
+          stmt = conn.prepareStatement(queryContext.getRewrittenQuery(),
+            ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+        } else {
+          stmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+        }
+        stmt.setFetchSize(Integer.MIN_VALUE);
+      } else {
+        stmt = queryContext.isPrepared() ? conn.prepareStatement(queryContext.getRewrittenQuery())
+          : conn.createStatement();
+
+        // Get default fetch size from conf if not overridden in query conf
+        int fetchSize = queryContext.getLensContext().getSelectedDriverConf().getInt(
+          JDBCDriverConfConstants.JDBC_FETCH_SIZE, JDBCDriverConfConstants.DEFAULT_JDBC_FETCH_SIZE);
+        stmt.setFetchSize(fetchSize);
+      }
+
       stmt.setFetchDirection(ResultSet.FETCH_FORWARD);
       return stmt;
     }
@@ -346,8 +362,9 @@ public class JDBCDriver implements LensDriver {
 
     /*
      * (non-Javadoc)
-     * 
-     * @see org.apache.lens.server.api.query.QueryRewriter#rewrite(java.lang.String, org.apache.hadoop.conf.Configuration)
+     *
+     * @see org.apache.lens.server.api.query.QueryRewriter#rewrite
+     * (java.lang.String, org.apache.hadoop.conf.Configuration)
      */
     @Override
     public String rewrite(String query, Configuration queryConf) throws LensException {
@@ -370,10 +387,8 @@ public class JDBCDriver implements LensDriver {
   /**
    * Configure driver with {@link org.apache.hadoop.conf.Configuration} passed
    *
-   * @param conf
-   *          The configuration object
-   * @throws LensException
-   *           the lens exception
+   * @param conf The configuration object
+   * @throws LensException the lens exception
    */
   @Override
   public void configure(Configuration conf) throws LensException {
@@ -388,10 +403,8 @@ public class JDBCDriver implements LensDriver {
   /**
    * Inits the.
    *
-   * @param conf
-   *          the conf
-   * @throws LensException
-   *           the lens exception
+   * @param conf the conf
+   * @throws LensException the lens exception
    */
   protected void init(Configuration conf) throws LensException {
     queryContextMap = new ConcurrentHashMap<QueryHandle, JdbcQueryContext>();
@@ -400,13 +413,13 @@ public class JDBCDriver implements LensDriver {
       @Override
       public Thread newThread(Runnable runnable) {
         Thread th = new Thread(runnable);
-        th.setName("lens-driver-jdbc-" + thid.incrementAndGet());
+        th.setName("lens-driver-jdbc-" + THID.incrementAndGet());
         return th;
       }
     });
 
     Class<? extends ConnectionProvider> cpClass = conf.getClass(JDBC_CONNECTION_PROVIDER,
-        DataSourceConnectionProvider.class, ConnectionProvider.class);
+      DataSourceConnectionProvider.class, ConnectionProvider.class);
     try {
       connectionProvider = cpClass.newInstance();
     } catch (Exception e) {
@@ -418,8 +431,7 @@ public class JDBCDriver implements LensDriver {
   /**
    * Check configured.
    *
-   * @throws IllegalStateException
-   *           the illegal state exception
+   * @throws IllegalStateException the illegal state exception
    */
   protected void checkConfigured() throws IllegalStateException {
     if (!configured) {
@@ -441,13 +453,12 @@ public class JDBCDriver implements LensDriver {
    * Gets the query rewriter.
    *
    * @return the query rewriter
-   * @throws LensException
-   *           the lens exception
+   * @throws LensException the lens exception
    */
   protected synchronized QueryRewriter getQueryRewriter() throws LensException {
     QueryRewriter rewriter;
     Class<? extends QueryRewriter> queryRewriterClass = conf.getClass(JDBC_QUERY_REWRITER_CLASS,
-        DummyQueryRewriter.class, QueryRewriter.class);
+      DummyQueryRewriter.class, QueryRewriter.class);
     if (rewriterCache.containsKey(queryRewriterClass)) {
       rewriter = rewriterCache.get(queryRewriterClass);
     } else {
@@ -467,11 +478,9 @@ public class JDBCDriver implements LensDriver {
   /**
    * Gets the query context.
    *
-   * @param handle
-   *          the handle
+   * @param handle the handle
    * @return the query context
-   * @throws LensException
-   *           the lens exception
+   * @throws LensException the lens exception
    */
   protected JdbcQueryContext getQueryContext(QueryHandle handle) throws LensException {
     JdbcQueryContext ctx = queryContextMap.get(handle);
@@ -484,13 +493,10 @@ public class JDBCDriver implements LensDriver {
   /**
    * Rewrite query.
    *
-   * @param query
-   *          the query
-   * @param conf
-   *          the conf
+   * @param query the query
+   * @param conf  the conf
    * @return the string
-   * @throws LensException
-   *           the lens exception
+   * @throws LensException the lens exception
    */
   protected String rewriteQuery(String query, Configuration conf) throws LensException {
     // check if it is select query
@@ -501,7 +507,8 @@ public class JDBCDriver implements LensDriver {
       } else {
         // check for insert clause
         ASTNode dest = HQLParser.findNodeByPath(ast, HiveParser.TOK_INSERT);
-        if (dest != null && ((ASTNode) (dest.getChild(0).getChild(0).getChild(0))).getToken().getType() != TOK_TMP_FILE) {
+        if (dest != null
+          && ((ASTNode) (dest.getChild(0).getChild(0).getChild(0))).getToken().getType() != TOK_TMP_FILE) {
           throw new LensException("Not allowed statement:" + query);
         }
       }
@@ -517,6 +524,7 @@ public class JDBCDriver implements LensDriver {
     return rewrittenQuery;
   }
 
+  private static final QueryCost JDBC_DRIVER_COST = new QueryCost(0, 0);
   /**
    * Dummy JDBC query Plan class to get min cost selector working.
    */
@@ -529,45 +537,51 @@ public class JDBCDriver implements LensDriver {
     @Override
     public QueryCost getCost() {
       // this means that JDBC driver is only selected for tables with just DB storage.
-      return new QueryCost(0, 0);
+      return JDBC_DRIVER_COST;
     }
+  }
+
+  @Override
+  public QueryCost estimate(AbstractQueryContext qctx) throws LensException {
+    return explain(qctx).getCost();
   }
 
   /**
    * Explain the given query.
    *
-   * @param query
-   *          The query should be in HiveQL(SQL like)
-   * @param conf
-   *          The query configuration
+   * @param explainCtx The explain context
    * @return The query plan object;
-   * @throws LensException
-   *           the lens exception
+   * @throws LensException the lens exception
    */
   @Override
-  public DriverQueryPlan explain(String query, Configuration conf)
-      throws LensException {
+  public DriverQueryPlan explain(AbstractQueryContext explainCtx) throws LensException {
+    if (explainCtx.getDriverQuery(this) == null) {
+      throw new NullPointerException("Null driver query for " + explainCtx.getUserQuery());
+    }
+    if (explainCtx.getDriverContext().getDriverQueryPlan(this) != null) {
+      // explain called again and again
+      return explainCtx.getDriverContext().getDriverQueryPlan(this);
+    }
     checkConfigured();
     String explainQuery;
-    String rewrittenQuery = rewriteQuery(query, conf);
-    Configuration explainConf = new Configuration(conf);
+    String rewrittenQuery = rewriteQuery(explainCtx.getDriverQuery(this), conf);
+    Configuration explainConf = new Configuration(explainCtx.getDriverConf(this));
     explainConf.setBoolean(LensConfConstants.QUERY_PERSISTENT_RESULT_INDRIVER,
-        false);
+      false);
     String explainKeyword = explainConf.get(JDBC_EXPLAIN_KEYWORD_PARAM,
-        DEFAULT_JDBC_EXPLAIN_KEYWORD);
+      DEFAULT_JDBC_EXPLAIN_KEYWORD);
     boolean explainBeforeSelect = explainConf.getBoolean(JDBC_EXPLAIN_KEYWORD_BEFORE_SELECT,
-        DEFAULT_JDBC_EXPLAIN_KEYWORD_BEFORE_SELECT);
-    
-    if (explainBeforeSelect)
-      explainQuery = explainKeyword + " " + rewrittenQuery;
-    else
-      explainQuery = rewrittenQuery.replaceAll("select ", "select "
-          + explainKeyword + " ");
-    LOG.info("Explain Query : " + explainQuery);
-    final LensDriver driver = (LensDriver) this;
-    QueryContext explainQueryCtx = new QueryContext(explainQuery, null,
-        explainConf, new ArrayList<LensDriver>() {{ add(driver); }});
+      DEFAULT_JDBC_EXPLAIN_KEYWORD_BEFORE_SELECT);
 
+    if (explainBeforeSelect) {
+      explainQuery = explainKeyword + " " + rewrittenQuery;
+    } else {
+      explainQuery = rewrittenQuery.replaceAll("select ", "select "
+        + explainKeyword + " ");
+    }
+    LOG.info("Explain Query : " + explainQuery);
+    QueryContext explainQueryCtx = QueryContext.createContextWithSingleDriver(explainQuery, null,
+      new LensConf(), explainConf, this, explainCtx.getLensSessionIdentifier());
     QueryResult result = null;
     try {
       result = executeInternal(explainQueryCtx, explainQuery);
@@ -579,17 +593,16 @@ public class JDBCDriver implements LensDriver {
         result.close();
       }
     }
-
-    return new JDBCQueryPlan();
+    JDBCQueryPlan jqp = new JDBCQueryPlan();
+    explainCtx.getDriverContext().setDriverQueryPlan(this, jqp);
+    return jqp;
   }
 
   /**
    * Prepare the given query.
    *
-   * @param pContext
-   *          the context
-   * @throws LensException
-   *           the lens exception
+   * @param pContext the context
+   * @throws LensException the lens exception
    */
   @Override
   public void prepare(PreparedQueryContext pContext) throws LensException {
@@ -626,16 +639,13 @@ public class JDBCDriver implements LensDriver {
   /**
    * Explain and prepare the given query.
    *
-   * @param pContext
-   *          the context
+   * @param pContext the context
    * @return The query plan object;
-   * @throws LensException
-   *           the lens exception
+   * @throws LensException the lens exception
    */
   @Override
   public DriverQueryPlan explainAndPrepare(PreparedQueryContext pContext) throws LensException {
     checkConfigured();
-    String rewritten = rewriteQuery(pContext.getSelectedDriverQuery(), conf);
     prepare(pContext);
     return new JDBCQueryPlan();
   }
@@ -643,10 +653,8 @@ public class JDBCDriver implements LensDriver {
   /**
    * Close the prepare query specified by the prepared handle, releases all the resources held by the prepared query.
    *
-   * @param handle
-   *          The query handle
-   * @throws LensException
-   *           the lens exception
+   * @param handle The query handle
+   * @throws LensException the lens exception
    */
   @Override
   public void closePreparedQuery(QueryPrepareHandle handle) throws LensException {
@@ -657,11 +665,9 @@ public class JDBCDriver implements LensDriver {
   /**
    * Blocking execute of the query.
    *
-   * @param context
-   *          the context
+   * @param context the context
    * @return returns the result set
-   * @throws LensException
-   *           the lens exception
+   * @throws LensException the lens exception
    */
   @Override
   public LensResultSet execute(QueryContext context) throws LensException {
@@ -678,13 +684,10 @@ public class JDBCDriver implements LensDriver {
   /**
    * Internally executing query.
    *
-   * @param context
-   *          the context
-   * @param rewrittenQuery
-   *          the rewritten query
+   * @param context        the context
+   * @param rewrittenQuery the rewritten query
    * @return returns the result set
-   * @throws LensException
-   *           the lens exception
+   * @throws LensException the lens exception
    */
 
   private QueryResult executeInternal(QueryContext context, String rewrittenQuery) throws LensException {
@@ -699,10 +702,8 @@ public class JDBCDriver implements LensDriver {
   /**
    * Asynchronously execute the query.
    *
-   * @param context
-   *          The query context
-   * @throws LensException
-   *           the lens exception
+   * @param context The query context
+   * @throws LensException the lens exception
    */
   @Override
   public void executeAsync(QueryContext context) throws LensException {
@@ -727,18 +728,15 @@ public class JDBCDriver implements LensDriver {
   /**
    * Register for query completion notification.
    *
-   * @param handle
-   *          the handle
-   * @param timeoutMillis
-   *          the timeout millis
-   * @param listener
-   *          the listener
-   * @throws LensException
-   *           the lens exception
+   * @param handle        the handle
+   * @param timeoutMillis the timeout millis
+   * @param listener      the listener
+   * @throws LensException the lens exception
    */
   @Override
-  public void registerForCompletionNotification(QueryHandle handle, long timeoutMillis, QueryCompletionListener listener)
-      throws LensException {
+  public void registerForCompletionNotification(
+    QueryHandle handle, long timeoutMillis, QueryCompletionListener listener)
+    throws LensException {
     checkConfigured();
     getQueryContext(handle).setListener(listener);
   }
@@ -746,10 +744,8 @@ public class JDBCDriver implements LensDriver {
   /**
    * Get status of the query, specified by the handle.
    *
-   * @param context
-   *          The query handle
-   * @throws LensException
-   *           the lens exception
+   * @param context The query handle
+   * @throws LensException the lens exception
    */
   @Override
   public void updateStatus(QueryContext context) throws LensException {
@@ -781,11 +777,9 @@ public class JDBCDriver implements LensDriver {
   /**
    * Fetch the results of the query, specified by the handle.
    *
-   * @param context
-   *          the context
+   * @param context the context
    * @return returns the {@link LensResultSet}.
-   * @throws LensException
-   *           the lens exception
+   * @throws LensException the lens exception
    */
   @Override
   public LensResultSet fetchResultSet(QueryContext context) throws LensException {
@@ -812,10 +806,8 @@ public class JDBCDriver implements LensDriver {
   /**
    * Close the resultset for the query.
    *
-   * @param handle
-   *          The query handle
-   * @throws LensException
-   *           the lens exception
+   * @param handle The query handle
+   * @throws LensException the lens exception
    */
   @Override
   public void closeResultSet(QueryHandle handle) throws LensException {
@@ -826,11 +818,9 @@ public class JDBCDriver implements LensDriver {
   /**
    * Cancel the execution of the query, specified by the handle.
    *
-   * @param handle
-   *          The query handle.
+   * @param handle The query handle.
    * @return true if cancel was successful, false otherwise
-   * @throws LensException
-   *           the lens exception
+   * @throws LensException the lens exception
    */
   @Override
   public boolean cancelQuery(QueryHandle handle) throws LensException {
@@ -853,10 +843,8 @@ public class JDBCDriver implements LensDriver {
   /**
    * Close the query specified by the handle, releases all the resources held by the query.
    *
-   * @param handle
-   *          The query handle
-   * @throws LensException
-   *           the lens exception
+   * @param handle The query handle
+   * @throws LensException the lens exception
    */
   @Override
   public void closeQuery(QueryHandle handle) throws LensException {
@@ -874,8 +862,7 @@ public class JDBCDriver implements LensDriver {
   /**
    * Close the driver, releasing all resouces used up by the driver.
    *
-   * @throws LensException
-   *           the lens exception
+   * @throws LensException the lens exception
    */
   @Override
   public void close() throws LensException {
@@ -896,8 +883,7 @@ public class JDBCDriver implements LensDriver {
   /**
    * Add a listener for driver events.
    *
-   * @param driverEventListener
-   *          the driver event listener
+   * @param driverEventListener the driver event listener
    */
   @Override
   public void registerDriverEventListener(LensEventListener<DriverEvent> driverEventListener) {
@@ -906,7 +892,7 @@ public class JDBCDriver implements LensDriver {
 
   /*
    * (non-Javadoc)
-   * 
+   *
    * @see java.io.Externalizable#readExternal(java.io.ObjectInput)
    */
   @Override
@@ -917,7 +903,7 @@ public class JDBCDriver implements LensDriver {
 
   /*
    * (non-Javadoc)
-   * 
+   *
    * @see java.io.Externalizable#writeExternal(java.io.ObjectOutput)
    */
   @Override
