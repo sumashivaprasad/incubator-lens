@@ -42,6 +42,7 @@ import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.hive.service.cli.ColumnDescriptor;
 
+
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
@@ -228,7 +229,6 @@ public abstract class TestAbstractFileFormatter {
     QueryContext ctx = QueryContext.createContextWithSingleDriver("test writer query", "testuser", new LensConf(),
         conf, mockDriver, null);
 
-    ctx.setSelectedDriver(mockDriver);
     formatter = createFormatter();
 
     formatter.init(ctx, columnNames);

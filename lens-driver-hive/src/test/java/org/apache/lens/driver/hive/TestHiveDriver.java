@@ -133,29 +133,16 @@ public class TestHiveDriver {
     SessionState.get().setCurrentDatabase(dataBase);
   }
 
-<<<<<<< HEAD
-  protected QueryContext createContext(final String query, Configuration conf) {
-    QueryContext context = new QueryContext(query, "testuser", conf, drivers);
-    context.getDriverContext().setDriverConf(conf);
-    context.setSelectedDriver(driver);
-=======
   protected QueryContext createContext(final String query, Configuration conf) throws LensException {
-    QueryContext context = new QueryContext(query, "testuser", new LensConf(), conf, drivers);
-    // session id has to be set before calling setDriverQueriesAndPlans
->>>>>>> 54f427c872485f2a860946aef200150de6692da0
-    context.setLensSessionIdentifier(sessionid);
-    return context;
+    QueryContext ctx = new MockQueryContext.Builder().user("testuser").query(query).conf
+            (conf).driverQueries(new HashMap<LensDriver, String>() {{ put(driver, query); }}).build();
+    return ctx;
   }
 
-  protected QueryContext createContext(PreparedQueryContext query, Configuration conf) {
-<<<<<<< HEAD
-    QueryContext context = new QueryContext(query, "testuser", conf);
-    context.getDriverContext().setDriverConf(conf);
-=======
-    QueryContext context = new QueryContext(query, "testuser", new LensConf(), conf);
->>>>>>> 54f427c872485f2a860946aef200150de6692da0
-    context.setLensSessionIdentifier(sessionid);
-    return context;
+  protected QueryContext createContext(PreparedQueryContext query, Configuration conf) throws LensException {
+    QueryContext ctx = new MockQueryContext.Builder().user("testuser").prepared(query)
+      .conf(conf).session(sessionid).build();
+    return ctx;
   }
 
   protected ExplainQueryContext createExplainContext(final String query, Configuration conf) {

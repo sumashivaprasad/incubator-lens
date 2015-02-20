@@ -83,7 +83,7 @@ public class MockQueryContext extends QueryContext {
 
     public MockQueryContext build() throws LensException {
       Preconditions.checkArgument(StringUtils.isNotBlank(query),
-                                  "Query should not be null");
+        "Query should not be null");
       Preconditions.checkNotNull(conf, "Configuration should not be null");
       Preconditions.checkNotNull(driverQueries, "Driver Queries should not be null");
       MockQueryContext ctx = new MockQueryContext(query, user, qconf, conf, driverQueries);
@@ -98,7 +98,7 @@ public class MockQueryContext extends QueryContext {
 
     public MockQueryContext buildPrepared() throws LensException {
       Preconditions.checkNotNull(query,
-                                 "Query should not be null");
+        "Query should not be null");
       Preconditions.checkNotNull(conf, "Configuration should not be null");
       MockQueryContext ctx = new MockQueryContext(preparedQueryContext, user, qconf, conf);
       if (selectedDriver != null) {
@@ -126,7 +126,7 @@ public class MockQueryContext extends QueryContext {
     super(query, user, qconf, conf);
   }
 
-  public Builder builder() {
+  public static Builder builder() {
     return new Builder();
   }
 }

@@ -32,11 +32,37 @@ import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import org.apache.lens.api.APIResult;
-import org.apache.lens.api.LensConf;
-import org.apache.lens.api.LensException;
-import org.apache.lens.api.LensSessionHandle;
-import org.apache.lens.api.query.*;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.hive.ql.HiveDriverRunHook;
+import org.apache.hadoop.hive.ql.HiveDriverRunHookContext;
+import org.apache.hadoop.io.IOUtils;
+import org.apache.lens.api.query.EstimateResult;
+import org.apache.lens.driver.hive.TestHiveDriver;
+import org.apache.lens.server.api.driver.MockQueryContext;
+import org.apache.lens.server.api.query.QueryContext;
+import org.glassfish.jersey.client.ClientConfig;
+import org.glassfish.jersey.media.multipart.FormDataBodyPart;
+import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
+import org.glassfish.jersey.media.multipart.FormDataMultiPart;
+import org.glassfish.jersey.media.multipart.MultiPartFeature;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.lens.api.*;
+import org.apache.lens.api.query.LensPreparedQuery;
+import org.apache.lens.api.query.LensQuery;
+import org.apache.lens.api.query.InMemoryQueryResult;
+import org.apache.lens.api.query.PersistentQueryResult;
+import org.apache.lens.api.query.QueryHandle;
+import org.apache.lens.api.query.QueryHandleWithResultSet;
+import org.apache.lens.api.query.QueryPlan;
+import org.apache.lens.api.query.QueryPrepareHandle;
+import org.apache.lens.api.query.QueryResultSetMetadata;
+import org.apache.lens.api.query.QueryStatus;
 import org.apache.lens.api.query.QueryStatus.Status;
 import org.apache.lens.driver.hive.HiveDriver;
 import org.apache.lens.driver.hive.TestHiveDriver;
@@ -1304,12 +1330,11 @@ public class TestQueryService extends LensJerseyTest {
     Assert.assertFalse(Boolean.parseBoolean(queryService.getHiveConf().get("hive.server2.log.redirection.enabled")));
     Assert.assertEquals(queryService.getHiveConf().get("hive.server2.query.log.dir"), "target/query-logs");
 
-    final String query = "select ID from " + testTable;
-    QueryContext ctx = new QueryContext(query, null, queryConf, conf, queryService.getDrivers());
-    Map<LensDriver, String> driverQueries = new HashMap<LensDriver, String>() {{ put(queryService.getDrivers
-      ().iterator().next(), query); }};
-    ctx.getDriverContext().setDriverConf(conf);
-    ctx.setDriverQueries(driverQueries);
+    final String query = "test query";
+
+    QueryContext ctx = new MockQueryContext.Builder().query(query).lensConf(queryConf)
+            .conf(conf).driverQueries(new HashMap<LensDriver, String>() {{ put(queryService.getDrivers().iterator().next(), query); }})
+            .build();
 
     Assert.assertEquals(queryService.getSession(lensSessionId).getHiveConf().getClassLoader(), ctx.getConf()
       .getClassLoader());

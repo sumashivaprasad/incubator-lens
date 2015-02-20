@@ -23,6 +23,9 @@ import static org.testng.Assert.*;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -49,7 +52,9 @@ import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
-import org.apache.lens.server.api.driver.;
+
+import org.apache.lens.server.api.driver.MockQueryContext;
+
 
 /**
  * The Class TestJdbcDriver.
@@ -108,8 +113,12 @@ public class TestJdbcDriver {
   }
 
   private QueryContext createQueryContext(final String query) throws LensException {
-    QueryContext ctx = new MockQueryContext.Builder().query(query).lensConf(lensConf).conf
-      (conf).driverQueries(driverQueries).build();
+    QueryContext ctx = new MockQueryContext.Builder().query(query).user("SA")
+      .conf(baseConf).driverQueries(new HashMap<LensDriver, String>() {{
+        put(driver, query);
+      }})
+      .selectedDriver(driver).build();
+    return ctx;
   }
 
   protected ExplainQueryContext createExplainContext(final String query, Configuration conf) {
@@ -324,7 +333,7 @@ public class TestJdbcDriver {
     final String query = "SELECT * from prepare_test";
     PreparedQueryContext pContext = new PreparedQueryContext(query, "SA", baseConf, drivers);
     pContext.getDriverContext().setDriverConf(baseConf);
-    pContext.getDriverContext().setDriverQueriesAndPlans(new HashMap<LensDriver, String>() {{ put(driver, query); }});
+    pContext.setDriverQueries(new HashMap<LensDriver, String>() {{ put(driver, query); }});
     pContext.setSelectedDriver(driver);
 
     driver.prepare(pContext);
