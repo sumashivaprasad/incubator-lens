@@ -326,6 +326,7 @@ public final class RewriteUtil {
         throw new LensException("Query rewrite failed for " + ctx.getUserQuery() + " with rewriter : " + rewriter
           .getClass().getName());
       }
+      LOG.info("Rewritten user query : " + rewrittenQuery);
     }
     return rewrittenQuery;
   }
@@ -343,7 +344,7 @@ public final class RewriteUtil {
       throw new LensException("No implementation class configured for rewriter: " + rewriterName);
     }
     try {
-      Class<?> cls = conf.getClass(rewriterClassName, null);
+      Class<?> cls = conf.getClass(LensConfConstants.getRewriterImplConfKey(rewriterName), null);
       if (cls != null && QueryRewriter.class.isAssignableFrom(cls)) {
         Class<? extends QueryRewriter> rewriterClass = (Class<? extends QueryRewriter>) cls;
         LOG.info("Adding " + rewriterName + " service with " + rewriterClass);
