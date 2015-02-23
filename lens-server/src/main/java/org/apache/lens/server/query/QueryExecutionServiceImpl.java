@@ -1837,8 +1837,6 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
    *
    * @param command
    * @param sessionHandle
-   * @param type
-   * @param path
    * @param driver
    * @return
    * @throws LensException
@@ -2166,6 +2164,6 @@ public class QueryExecutionServiceImpl extends LensService implements QueryExecu
 
     // Phase 2. Rewrite CubeQL to HQL
     final Map<LensDriver, String> rewrittenDriverQueries = RewriteUtil.rewriteToHQL(ctx);
-    ctx.getDriverContext().setDriverQueriesAndPlans(rewrittenDriverQueries);
+    ctx.setDriverQueries(rewrittenDriverQueries);
   }
 }
